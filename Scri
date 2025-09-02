@@ -43,3 +43,60 @@ async function exportZip(){
 
 //add event listner
 document.querySelector('#btnExportZip').addEventListener('click', exportZip);
+
+
+<select id="mainMenu" style="margin:6px;padding:6px;width:260px;border-radius:8px;">
+  <optgroup label="🔍 Locator Panels">
+    <option value="basic">Basic</option>
+    <option value="wildcards">Wildcards</option>
+    <option value="axes">Axes</option>
+    <option value="functions">Functions & Relative</option>
+    <option value="sf">Salesforce / LWC</option>
+    <option value="pega">Pega</option>
+  </optgroup>
+  <optgroup label="⚙️ POM & Steps Presets">
+    <option value="sel_java_testng">Selenium + Java + Maven TestNG</option>
+    <option value="sel_java_cucumber">Selenium + Java + Maven + Cucumber</option>
+    <option value="pw_java_testng">Playwright + Java + Maven TestNG</option>
+    <option value="pw_java_cucumber">Playwright + Java + Maven + Cucumber</option>
+  </optgroup>
+</select>
+
+
+document.querySelector('#mainMenu').addEventListener('change', function(e){
+  const val = e.target.value;
+
+  // 🔍 Locator panels
+  if(val === 'basic') switchPanel('basic');
+  if(val === 'wildcards') switchPanel('wildcards');
+  if(val === 'axes') switchPanel('axes');
+  if(val === 'functions') switchPanel('functions');
+  if(val === 'sf') switchPanel('sf');
+  if(val === 'pega') switchPanel('pega');
+
+  // ⚙️ Preset selections
+  if(val === 'sel_java_testng'){
+    currentFramework = "selenium";
+    currentLanguage  = "java";
+    currentRunner    = "testng";
+    fillLocatorList();
+  }
+  if(val === 'sel_java_cucumber'){
+    currentFramework = "selenium";
+    currentLanguage  = "java";
+    currentRunner    = "cucumber";
+    fillLocatorList();
+  }
+  if(val === 'pw_java_testng'){
+    currentFramework = "playwright";
+    currentLanguage  = "java";
+    currentRunner    = "testng";
+    fillLocatorList();
+  }
+  if(val === 'pw_java_cucumber'){
+    currentFramework = "playwright";
+    currentLanguage  = "java";
+    currentRunner    = "cucumber";
+    fillLocatorList();
+  }
+});
