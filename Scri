@@ -100,3 +100,21 @@ document.querySelector('#mainMenu').addEventListener('change', function(e){
     fillLocatorList();
   }
 });
+
+
+
+<select id="presetMenu" style="margin:6px;padding:6px;width:280px;border-radius:8px;">
+  <optgroup label="⚙️ POM & Steps Presets">
+    <option value="sel_java_testng">Selenium + Java + Maven TestNG</option>
+    <option value="sel_java_cucumber">Selenium + Java + Maven + Cucumber</option>
+    <option value="sel_js_cucumber">Selenium + JavaScript + Maven + Cucumber</option>
+    <option value="sel_ts_cucumber">Selenium + TypeScript + Maven + Cucumber</option>
+    <option value="sel_py_pytest">Selenium + Python + PyTest</option>
+    <option value="pw_java_testng">Playwright + Java + Maven TestNG</option>
+    <option value="pw_java_cucumber">Playwright + Java + Maven + Cucumber</option>
+    <option value="pw_js_testng">Playwright + JavaScript + Maven TestNG</option>
+    <option value="pw_ts_testng">Playwright + TypeScript + Maven TestNG</option>
+    <option value="pw_py_pytest">Playwright + Python + PyTest</option>
+  </optgroup>
+</select>
+
