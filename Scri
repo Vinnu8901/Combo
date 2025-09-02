@@ -118,3 +118,57 @@ document.querySelector('#mainMenu').addEventListener('change', function(e){
   </optgroup>
 </select>
 
+
+
+
+
+// 🔍 Locator menu logic
+document.querySelector('#locatorMenu').addEventListener('change', function(e){
+  const val = e.target.value;
+  if(val === 'basic') switchPanel('basic');
+  if(val === 'wildcards') switchPanel('wildcards');
+  if(val === 'axes') switchPanel('axes');
+  if(val === 'functions') switchPanel('functions');
+  if(val === 'sf') switchPanel('sf');
+  if(val === 'pega') switchPanel('pega');
+});
+
+// ⚙️ Preset menu logic
+document.querySelector('#presetMenu').addEventListener('change', function(e){
+  const val = e.target.value;
+
+  if(val === 'sel_java_testng'){
+    currentFramework = "selenium"; currentLanguage = "java"; currentRunner = "testng"; fillLocatorList();
+  }
+  if(val === 'sel_java_cucumber'){
+    currentFramework = "selenium"; currentLanguage = "java"; currentRunner = "cucumber"; fillLocatorList();
+  }
+  if(val === 'sel_js_cucumber'){
+    currentFramework = "selenium"; currentLanguage = "js"; currentRunner = "cucumber"; fillLocatorList();
+  }
+  if(val === 'sel_ts_cucumber'){
+    currentFramework = "selenium"; currentLanguage = "ts"; currentRunner = "cucumber"; fillLocatorList();
+  }
+  if(val === 'sel_py_pytest'){
+    currentFramework = "selenium"; currentLanguage = "python"; currentRunner = "pytest"; fillLocatorList();
+  }
+  if(val === 'pw_java_testng'){
+    currentFramework = "playwright"; currentLanguage = "java"; currentRunner = "testng"; fillLocatorList();
+  }
+  if(val === 'pw_java_cucumber'){
+    currentFramework = "playwright"; currentLanguage = "java"; currentRunner = "cucumber"; fillLocatorList();
+  }
+  if(val === 'pw_js_testng'){
+    currentFramework = "playwright"; currentLanguage = "js"; currentRunner = "testng"; fillLocatorList();
+  }
+  if(val === 'pw_ts_testng'){
+    currentFramework = "playwright"; currentLanguage = "ts"; currentRunner = "testng"; fillLocatorList();
+  }
+  if(val === 'pw_py_pytest'){
+    currentFramework = "playwright"; currentLanguage = "python"; currentRunner = "pytest"; fillLocatorList();
+  }
+});
+
+
+
+
