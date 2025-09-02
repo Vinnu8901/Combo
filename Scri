@@ -1,0 +1,45 @@
+//before head tag
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+//where div = Toolbar 
+<input id="pageClassName" type="text"
+  placeholder="Page class name (default: GeneratedPage)"
+  style="margin:4px;padding:4px;width:220px">
+
+<button id="btnExportZip">Export as ZIP</button>
+
+//show toast
+
+function getPageClassName(){
+  const inp=document.querySelector('#pageClassName');
+  let v=inp && inp.value.trim();
+  if(!v) return 'GeneratedPage';
+  v=v.replace(/[^A-Za-z0-9_]/g,'_');
+  if(/^\d/.test(v)) v='_'+v;
+  return v;
+}
+
+//replace btn zip all
+
+async function exportZip(){
+  const zip=new JSZip();
+  const cls=getPageClassName();
+
+  zip.file("pom.xml", generatePomSeleniumTestNG());
+  zip.file("testng.xml", generateTestNGxml());
+  zip.file("src/test/java/com/example/runner/CucumberTestNGRunner.java", generateRunnerTestNG());
+  zip.file("src/test/java/com/example/hooks/Hooks.java", generateHooksSelenium());
+  zip.file(`src/test/java/com/example/pages/${cls}.java`, generatePOMJavaSelenium(cls));
+  zip.file(`src/test/java/com/example/steps/${cls}Steps.java`, generateStepsJavaSelenium(cls+"Steps"));
+  zip.file("src/test/resources/features/generated.feature", generateFeatureTemplate());
+
+  const blob=await zip.generateAsync({type:"blob"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download="project.zip"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showToast("ZIP Exported");
+}
+
+//add event listner
+document.querySelector('#btnExportZip').addEventListener('click', exportZip);
