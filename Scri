@@ -201,3 +201,26 @@ function fillLocatorList(panel='basic'){
     locList.appendChild(row);
   });
 }
+
+
+
+
+
+$('#btnGenPOM').addEventListener('click', ()=>{
+  if(!CURRENT_LOCATORS.length) return showToast('Render & extract first');
+
+  // Collect only checked locators
+  const checkedIds = $$('.loc-check:checked').map(cb => cb.dataset.id);
+  const selectedLocs = CURRENT_LOCATORS.filter(l => checkedIds.includes(l.id));
+
+  if(!selectedLocs.length) return showToast('Select at least one element');
+
+  const fw = $('.sw[data-fw].active').dataset.fw;         
+  const runner = $('.sw[data-runner].active').dataset.runner; 
+  const lang = $('.sw[data-lang].active').dataset.lang;   
+
+  const res = buildArtifacts({fw, runner, lang, locs: selectedLocs});
+  POM_CACHE = { pom: res.pom, steps: res.steps };
+  output.value = `// ===== POM =====\n${res.pom}\n\n// ===== Steps =====\n${res.steps}`;
+  showToast('POM + Steps generated');
+});
