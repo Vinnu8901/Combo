@@ -1,0 +1,73 @@
+<!-- Left (for API Studio only) -->
+<section id="leftCard" class="card">
+  <div class="head" id="leftHead">Paste cURL</div>
+  <div class="body" id="leftBody">
+    <textarea id="curlBox" class="ed mono" placeholder="Paste full cURL command here..."></textarea>
+    <div class="row">
+      <button id="btnParseCurlBox" class="btn primary" style="width:auto">Parse cURL</button>
+    </div>
+  </div>
+</section>
+
+
+
+
+function setMode(m){
+  modePOM.classList.remove('active'); 
+  modeAPI.classList.remove('active');
+
+  if(m==='pom'){ 
+    modePOM.classList.add('active'); 
+    pomPanel.classList.remove('hidden'); 
+    apiPanel.classList.add('hidden'); 
+    document.querySelector('#curlBox')?.parentElement.classList.add('hidden');
+  }
+  else { 
+    modeAPI.classList.add('active'); 
+    pomPanel.classList.add('hidden'); 
+    apiPanel.classList.remove('hidden'); 
+    document.querySelector('#curlBox')?.parentElement.classList.remove('hidden');
+  }
+}
+
+
+$('#btnParseCurlBox').addEventListener('click', ()=>{
+  const curl = $('#curlBox').value.trim();
+  if(!curl){ showToast('No cURL entered'); return; }
+  parseCurl(curl);
+  showToast('Parsed cURL from textarea');
+});
+
+
+
+function generateApiCode(){
+  const method = $('#apiMethod').value;
+  const url = $('#apiUrl').value;
+  let headers = $('#apiHeaders').value;
+  const body = $('#apiBody').value;
+
+  try { headers = JSON.stringify(JSON.parse(headers), null, 2); } catch(e) {}
+
+  // ---- RestAssured ----
+  const rest = `// RestAssured Example
+given()
+  .headers(${headers})
+  .body(${body})
+.when()
+  .${method.toLowerCase()}("${url}")
+.then()
+  .statusCode(200);`;
+
+  // ---- Karate DSL ----
+  const karate = `# Karate DSL Example
+Feature: API Test
+  Scenario: ${method} request
+    Given url '${url}'
+    And headers ${headers}
+    And request ${body}
+    When method ${method.toLowerCase()}
+    Then status 200`;
+
+  $('#apiCode').value = rest + "\n\n" + karate;
+}
+
