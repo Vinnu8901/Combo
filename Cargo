@@ -372,8 +372,106 @@ def test_dynamic(page):
   return {pom, steps};
 }
 
+// new fill
+
+function fillLocatorList(panel='basic'){
+  locList.innerHTML = '';
+  
+  // ⚡ Handle Dynamic tab separately
+  if(panel === 'dynamic'){
+    const groups = [
+      { type: 'inputs',    xpath: "//input[not(@type='checkbox') and (@name='%s' or @placeholder='%s')]" },
+      { type: 'checkboxes',xpath: "//input[@type='checkbox']" },
+      { type: 'dropdowns', xpath: "//select | //div[contains(@class,'dropdown')]" },
+      { type: 'buttons',   xpath: "//button[contains(normalize-space(.),'%s')] | //a[contains(@class,'btn')]" }
+    ];
+
+    groups.forEach(g=>{
+      const row = document.createElement('div');
+      row.className = 'loc-row';
+      row.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+          <span class="badge">Dynamic</span>
+          <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40ch">${g.type}</div>
+        </div>
+        <div class="small mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60ch" title="${g.xpath}">${g.xpath}</div>
+      `;
+      locList.appendChild(row);
+    });
+    return; // ✅ only for dynamic
+  }
+
+  // 🔹 Normal panels (basic, wildcards, axes, functions, sf, pega)
+  if(!CURRENT_LOCATORS.length){ return; }
+
+  CURRENT_LOCATORS.forEach(loc=>{
+    let value = (loc.xpaths?.[panel]) || loc.xpaths.basic;
+    if(panel === 'sf'   && loc.xpaths.sfsmart)   value = loc.xpaths.sfsmart   || loc.xpaths.sf;
+    if(panel === 'pega' && loc.xpaths.pegasmart) value = loc.xpaths.pegasmart || loc.xpaths.pega;
+
+    const row = document.createElement('div');
+    row.className = 'loc-row';
+    row.innerHTML = `
+      <input type="checkbox" class="loc-check" data-id="${loc.id}" style="margin-right:8px">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+        <span class="badge">${(loc.framework||'').trim() || loc.tag}</span>
+        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40ch">${loc.text || '(no text)'}</div>
+      </div>
+      <div class="small mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60ch" title="${value}">${value}</div>
+    `;
+    row.addEventListener('click', async (e)=>{
+      if(e.target.classList.contains('loc-check')) return;
+      try{ await navigator.clipboard.writeText(value); }catch(e){}
+      showToast('Locator copied');
+      tryHighlightInPreviewByXPathOrCss({ xpath: value, css: loc.css });
+    });
+    locList.appendChild(row);
+  });
+}
 
 
+// dynamic
+
+$('#btnGenPOM').addEventListener('click', ()=>{
+  if(!CURRENT_LOCATORS.length && $('.chip.active')?.dataset.paneltab!=='dynamic')
+    return showToast('Render & extract first');
+
+  const panel = $('.chip.active')?.dataset.paneltab || 'basic';
+
+  let locsWithPanel;
+
+  if(panel === 'dynamic'){
+    locsWithPanel = [
+      { text: 'inputs',    chosenXpath: "//input[not(@type='checkbox') and (@name='%s' or @placeholder='%s')]" },
+      { text: 'checkboxes',chosenXpath: "//input[@type='checkbox']" },
+      { text: 'dropdowns', chosenXpath: "//select | //div[contains(@class,'dropdown')]" },
+      { text: 'buttons',   chosenXpath: "//button[contains(normalize-space(.),'%s')] | //a[contains(@class,'btn')]" }
+    ];
+  } else {
+    const checkedIds = $$('.loc-check:checked').map(cb => cb.dataset.id);
+    const selectedLocs = CURRENT_LOCATORS.filter(l => checkedIds.includes(l.id));
+    if(!selectedLocs.length) return showToast('Select at least one element');
+
+    locsWithPanel = selectedLocs.map(loc=>{
+      let value = loc.xpaths.basic;
+      if(panel === 'wildcards') value = loc.xpaths.wildcards;
+      if(panel === 'axes')      value = loc.xpaths.axes;
+      if(panel === 'functions') value = loc.xpaths.functions;
+      if(panel === 'sf')        value = loc.xpaths.sfsmart || loc.xpaths.sf;
+      if(panel === 'pega')      value = loc.xpaths.pegasmart || loc.xpaths.pega;
+      return {...loc, chosenXpath: value};
+    });
+  }
+
+  const fw = $('.sw[data-fw].active').dataset.fw;         
+  const runner = $('.sw[data-runner].active').dataset.runner; 
+  const lang = $('.sw[data-lang].active').dataset.lang;   
+
+  const res = buildArtifacts({fw, runner, lang, locs: locsWithPanel});
+  POM_CACHE = { pom: res.pom, steps: res.steps };
+  output.value = `// ===== POM =====\n${res.pom}\n\n// ===== Steps =====\n${res.steps}`;
+  showToast('POM + Steps generated');
+});
 
 
 
