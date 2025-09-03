@@ -109,3 +109,19 @@ Feature: API Test
 }
 
 
+
+
+// ✅ API Studio Clear button
+document.addEventListener("DOMContentLoaded", ()=>{
+  $('#btnApiClear')?.addEventListener('click', ()=>{
+    // Reset all API Studio fields
+    $('#curlBox').value = '';
+    $('#apiMethod').value = 'GET';
+    $('#apiUrl').value = '';
+    $('#apiHeaders').value = '{}';
+    $('#apiBody').value = '{}';
+    $('#apiCode').value = '';
+    $('#apiResponse').value = '';
+    showToast('API Studio cleared');
+  });
+});
