@@ -91,3 +91,26 @@ ${lines ? lines : '        pass'}
 }
 
 
+// Get the current active panel
+const panel = $('.chip.active')?.dataset.paneltab || 'basic';
+
+// Add chosenXpath
+const locsWithPanel = selectedLocs.map(loc=>{
+  let value = loc.xpaths.basic;
+  if(panel === 'wildcards') value = loc.xpaths.wildcards;
+  if(panel === 'axes')      value = loc.xpaths.axes;
+  if(panel === 'functions') value = loc.xpaths.functions;
+  if(panel === 'sf')        value = loc.xpaths.sfsmart || loc.xpaths.sf;
+  if(panel === 'pega')      value = loc.xpaths.pegasmart || loc.xpaths.pega;
+  if(panel === 'dynamic'){
+    // Convert to %s template
+    if(loc.xpaths.basic.includes("@id=")){
+      value = loc.xpaths.basic.replace(/@id="[^"]+"/, "@id='%s'");
+    } else if(loc.xpaths.basic.includes("@name=")){
+      value = loc.xpaths.basic.replace(/@name="[^"]+"/, "@name='%s'");
+    } else {
+      value = "//*[contains(text(),'%s')]";
+    }
+  }
+  return {...loc, chosenXpath: value};
+});
