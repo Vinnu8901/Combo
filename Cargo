@@ -1,0 +1,93 @@
+$('#btnGenPOM').addEventListener('click', ()=>{
+  if(!CURRENT_LOCATORS.length) return showToast('Render & extract first');
+
+  // Collect only checked locators
+  const checkedIds = $$('.loc-check:checked').map(cb => cb.dataset.id);
+  const selectedLocs = CURRENT_LOCATORS.filter(l => checkedIds.includes(l.id));
+
+  if(!selectedLocs.length) return showToast('Select at least one element');
+
+  // Get the current active panel (basic / wildcards / axes / functions / sf / pega)
+  const panel = $('.chip.active')?.dataset.paneltab || 'basic';
+
+  // Add chosenXpath for each selected locator
+  const locsWithPanel = selectedLocs.map(loc=>{
+    let value = loc.xpaths.basic;
+    if(panel === 'wildcards') value = loc.xpaths.wildcards;
+    if(panel === 'axes')      value = loc.xpaths.axes;
+    if(panel === 'functions') value = loc.xpaths.functions;
+    if(panel === 'sf')        value = loc.xpaths.sfsmart || loc.xpaths.sf;
+    if(panel === 'pega')      value = loc.xpaths.pegasmart || loc.xpaths.pega;
+    return {...loc, chosenXpath: value};
+  });
+
+  const fw = $('.sw[data-fw].active').dataset.fw;         
+  const runner = $('.sw[data-runner].active').dataset.runner; 
+  const lang = $('.sw[data-lang].active').dataset.lang;   
+
+  const res = buildArtifacts({fw, runner, lang, locs: locsWithPanel});
+  POM_CACHE = { pom: res.pom, steps: res.steps };
+  output.value = `// ===== POM =====\n${res.pom}\n\n// ===== Steps =====\n${res.steps}`;
+  showToast('POM + Steps generated');
+});
+
+
+function javaSeleniumArtifacts(runner, locs){
+  const fields = locs.map((l,i)=>`  @FindBy(xpath = "${l.chosenXpath || l.xpaths.basic}")\n  private WebElement ${camel(l.text)||'elem'+(i+1)};`).join('\n\n');
+  const actions = locs.map((l,i)=>`  public void click_${safe(camel(l.text)||('elem'+(i+1)))}(){ ${camel(l.text)||'elem'+(i+1)}.click(); }`).join('\n');
+  ...
+}
+
+
+function javaSeleniumArtifacts(runner, locs){
+  const fields = locs.map((l,i)=>`  @FindBy(xpath = "${l.chosenXpath || l.xpaths.basic}")\n  private WebElement ${camel(l.text)||'elem'+(i+1)};`).join('\n\n');
+  const actions = locs.map((l,i)=>`  public void click_${safe(camel(l.text)||('elem'+(i+1)))}(){ ${camel(l.text)||'elem'+(i+1)}.click(); }`).join('\n');
+  ...
+}
+
+
+
+function javaPlaywrightArtifacts(runner, locs){
+  const fields = locs.map((l,i)=>`  private Locator ${camel(l.text)||'elem'+(i+1)};`).join('\n');
+  const initLines = locs.map((l,i)=>`    ${camel(l.text)||'elem'+(i+1)} = page.locator("${l.chosenXpath || l.css}");`).join('\n');
+  const actions = locs.map((l,i)=>`  public void click_${safe(camel(l.text)||('elem'+(i+1)))}(){ ${camel(l.text)||'elem'+(i+1)}.click(); }`).join('\n');
+  ...
+}
+
+
+function jsPlaywrightArtifacts(locs){
+  const lines = locs.map(l=>`  this.${camel(l.text)||'elem'} = this.page.locator("${l.chosenXpath || l.css}");`).join('\n');
+  const pom = `class SamplePage {
+  constructor(page){
+    this.page = page;
+${lines}
+  }
+}
+module.exports = { SamplePage };`;
+  ...
+}
+
+
+
+function tsPlaywrightArtifacts(locs){
+  const lines = locs.map(l=>`  this.${camel(l.text)||'elem'} = this.page.locator("${l.chosenXpath || l.css}");`).join('\n');
+  const pom = `export class SamplePage {
+  constructor(private page: Page){
+${lines}
+  }
+}`;
+  ...
+}
+
+
+function pyPlaywrightArtifacts(locs){
+  const lines = locs.map(l=>`        self.${camel(l.text)||'elem'} = page.locator("${l.chosenXpath || l.css}")`).join('\n');
+  const pom = `class SamplePage:
+    def __init__(self, page):
+        self.page = page
+${lines ? lines : '        pass'}
+`;
+  ...
+}
+
+
