@@ -293,3 +293,112 @@ function parseCurl(curl){
   }
 }
 
+
+
+
+////()////
+
+function normalizeHeaderKey(key){
+  return key.split('-')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join('-');
+}
+
+function parseCurl(curl){
+  try {
+    // 🔥 Step 1: Normalize (join multi-line)
+    curl = curl.replace(/\\\s*\n/g, ' ');   // join lines with backslashes
+    curl = curl.replace(/\n+/g, ' ');       // remove plain line breaks
+    curl = curl.trim();
+
+    // 🔥 Step 2: Detect Method
+    let method = (curl.match(/(?:-X|--request)\s+(GET|POST|PUT|DELETE|PATCH)/i) || [])[1];
+    if(!method){
+      if(/--data|--form|-F/.test(curl)){
+        method = 'POST';
+      } else {
+        method = 'GET';
+      }
+    }
+
+    // 🔥 Step 3: Detect URL
+    let url = (curl.match(/--url\s+['"]?([^'"\s]+)/i) || [])[1];
+    if(!url){
+      url = (curl.match(/curl\s+['"]?([^'"\s]+)/i) || [])[1] || '';
+    }
+
+    // 🔥 Step 4: Extract Headers
+    const headers = {};
+    const headerRegex = /(?:-H|--header)\s+'([^']+):\s*([^']+)'/gi;
+    let h;
+    while((h = headerRegex.exec(curl)) !== null){
+      const key = normalizeHeaderKey(h[1].trim());
+      const value = h[2].trim();
+      if(headers[key]){
+        headers[key] += "; " + value;   // merge duplicates (like Cookie)
+      } else {
+        headers[key] = value;
+      }
+    }
+
+    // 🔥 Step 5: Pretty-print headers JSON
+    let headersJson = '{}';
+    try {
+      headersJson = JSON.stringify(headers, null, 2);
+    } catch(e){
+      headersJson = '{}';
+    }
+
+    // 🔥 Step 6: Detect Body (JSON, urlencoded, form-data)
+    let body = '{}';
+
+    // Case A: --data (JSON or raw)
+    const dataMatch = curl.match(/--data(?:-raw)?\s+['"]([^']+)['"]/i) 
+                   || curl.match(/--data-binary\s+['"]([^']+)['"]/i);
+    if(dataMatch){
+      body = dataMatch[1];
+      try {
+        body = JSON.stringify(JSON.parse(body), null, 2);  // pretty JSON
+      } catch(e){
+        // urlencoded? convert to JSON
+        if(body.includes("=") && body.includes("&")){
+          const params = {};
+          body.split("&").forEach(p=>{
+            const [k,v] = p.split("=");
+            params[k] = decodeURIComponent(v || "");
+          });
+          body = JSON.stringify(params, null, 2);
+        }
+        // else keep as raw string
+      }
+    }
+
+    // Case B: --form / -F (multipart)
+    const formRegex = /(?:--form|-F)\s+'([^=]+)=(@?[^']+)'/gi;
+    let f; 
+    let multipart = [];
+    while((f = formRegex.exec(curl)) !== null){
+      const field = f[1].trim();
+      const value = f[2].trim();
+      if(value.startsWith("@")){
+        multipart.push(`And multipart file ${field} = { read: '${value.substring(1)}' }`);
+      } else {
+        multipart.push(`And multipart field ${field} = '${value}'`);
+      }
+    }
+    if(multipart.length){
+      body = multipart.join("\n    "); // Karate-style multipart
+    }
+
+    // 🔥 Step 7: Fill UI fields
+    $('#apiMethod').value = method.toUpperCase();
+    $('#apiUrl').value = url;
+    $('#apiHeaders').value = headersJson;
+    $('#apiBody').value = body;
+
+  } catch(e){
+    console.error("parseCurl failed:", e);
+    showToast("Failed to parse cURL");
+  }
+}
+
