@@ -1,442 +1,33 @@
-$('#btnGenPOM').addEventListener('click', ()=>{
-  if(!CURRENT_LOCATORS.length) return showToast('Render & extract first');
+function renderPreview(){
+  const html = pasteBox.value?.trim();
 
-  // Collect only checked locators
-  const checkedIds = $$('.loc-check:checked').map(cb => cb.dataset.id);
-  const selectedLocs = CURRENT_LOCATORS.filter(l => checkedIds.includes(l.id));
-
-  if(!selectedLocs.length) return showToast('Select at least one element');
-
-  // Get the current active panel (basic / wildcards / axes / functions / sf / pega)
-  const panel = $('.chip.active')?.dataset.paneltab || 'basic';
-
-  // Add chosenXpath for each selected locator
-  const locsWithPanel = selectedLocs.map(loc=>{
-    let value = loc.xpaths.basic;
-    if(panel === 'wildcards') value = loc.xpaths.wildcards;
-    if(panel === 'axes')      value = loc.xpaths.axes;
-    if(panel === 'functions') value = loc.xpaths.functions;
-    if(panel === 'sf')        value = loc.xpaths.sfsmart || loc.xpaths.sf;
-    if(panel === 'pega')      value = loc.xpaths.pegasmart || loc.xpaths.pega;
-    return {...loc, chosenXpath: value};
-  });
-
-  const fw = $('.sw[data-fw].active').dataset.fw;         
-  const runner = $('.sw[data-runner].active').dataset.runner; 
-  const lang = $('.sw[data-lang].active').dataset.lang;   
-
-  const res = buildArtifacts({fw, runner, lang, locs: locsWithPanel});
-  POM_CACHE = { pom: res.pom, steps: res.steps };
-  output.value = `// ===== POM =====\n${res.pom}\n\n// ===== Steps =====\n${res.steps}`;
-  showToast('POM + Steps generated');
-});
-
-
-function javaSeleniumArtifacts(runner, locs){
-  const fields = locs.map((l,i)=>`  @FindBy(xpath = "${l.chosenXpath || l.xpaths.basic}")\n  private WebElement ${camel(l.text)||'elem'+(i+1)};`).join('\n\n');
-  const actions = locs.map((l,i)=>`  public void click_${safe(camel(l.text)||('elem'+(i+1)))}(){ ${camel(l.text)||'elem'+(i+1)}.click(); }`).join('\n');
-  ...
-}
-
-
-function javaSeleniumArtifacts(runner, locs){
-  const fields = locs.map((l,i)=>`  @FindBy(xpath = "${l.chosenXpath || l.xpaths.basic}")\n  private WebElement ${camel(l.text)||'elem'+(i+1)};`).join('\n\n');
-  const actions = locs.map((l,i)=>`  public void click_${safe(camel(l.text)||('elem'+(i+1)))}(){ ${camel(l.text)||'elem'+(i+1)}.click(); }`).join('\n');
-  ...
-}
-
-
-
-function javaPlaywrightArtifacts(runner, locs){
-  const fields = locs.map((l,i)=>`  private Locator ${camel(l.text)||'elem'+(i+1)};`).join('\n');
-  const initLines = locs.map((l,i)=>`    ${camel(l.text)||'elem'+(i+1)} = page.locator("${l.chosenXpath || l.css}");`).join('\n');
-  const actions = locs.map((l,i)=>`  public void click_${safe(camel(l.text)||('elem'+(i+1)))}(){ ${camel(l.text)||'elem'+(i+1)}.click(); }`).join('\n');
-  ...
-}
-
-
-function jsPlaywrightArtifacts(locs){
-  const lines = locs.map(l=>`  this.${camel(l.text)||'elem'} = this.page.locator("${l.chosenXpath || l.css}");`).join('\n');
-  const pom = `class SamplePage {
-  constructor(page){
-    this.page = page;
-${lines}
+  if(!html){
+    showToast("Textarea is empty. Paste HTML first.");
+    return;
   }
-}
-module.exports = { SamplePage };`;
-  ...
-}
 
+  CURRENT_HTML = html;
+  preview.removeAttribute("sandbox");   // ✅ allow rendering
+  preview.srcdoc = html;
 
+  const parser = new DOMParser();
+  CURRENT_DOC = parser.parseFromString(html, 'text/html');
 
-function tsPlaywrightArtifacts(locs){
-  const lines = locs.map(l=>`  this.${camel(l.text)||'elem'} = this.page.locator("${l.chosenXpath || l.css}");`).join('\n');
-  const pom = `export class SamplePage {
-  constructor(private page: Page){
-${lines}
-  }
-}`;
-  ...
-}
-
-
-function pyPlaywrightArtifacts(locs){
-  const lines = locs.map(l=>`        self.${camel(l.text)||'elem'} = page.locator("${l.chosenXpath || l.css}")`).join('\n');
-  const pom = `class SamplePage:
-    def __init__(self, page):
-        self.page = page
-${lines ? lines : '        pass'}
-`;
-  ...
-}
-
-
-// Get the current active panel
-const panel = $('.chip.active')?.dataset.paneltab || 'basic';
-
-// Add chosenXpath
-const locsWithPanel = selectedLocs.map(loc=>{
-  let value = loc.xpaths.basic;
-  if(panel === 'wildcards') value = loc.xpaths.wildcards;
-  if(panel === 'axes')      value = loc.xpaths.axes;
-  if(panel === 'functions') value = loc.xpaths.functions;
-  if(panel === 'sf')        value = loc.xpaths.sfsmart || loc.xpaths.sf;
-  if(panel === 'pega')      value = loc.xpaths.pegasmart || loc.xpaths.pega;
-  if(panel === 'dynamic'){
-    // Convert to %s template
-    if(loc.xpaths.basic.includes("@id=")){
-      value = loc.xpaths.basic.replace(/@id="[^"]+"/, "@id='%s'");
-    } else if(loc.xpaths.basic.includes("@name=")){
-      value = loc.xpaths.basic.replace(/@name="[^"]+"/, "@name='%s'");
-    } else {
-      value = "//*[contains(text(),'%s')]";
+  setTimeout(()=>{
+    try {
+      extractAllLocators();
+      showToast('Preview rendered + Locators extracted');
+    } catch(e){
+      console.error("extractAllLocators failed:", e);
+      showToast("Locator extraction failed");
     }
-  }
-  return {...loc, chosenXpath: value};
-});
-
-
-
-if(panel === 'dynamic'){
-  // Build a %s-based generic XPath (excluding @id)
-  if(loc.xpaths.basic.includes("@name=")){
-    value = loc.xpaths.basic.replace(/@name="[^"]+"/, "@name='%s'");
-  } else if(loc.xpaths.basic.includes("contains\\(normalize-space\\(.+\\)")){
-    // for label/text based locators
-    value = loc.xpaths.basic.replace(/"[^"]+"/, "'%s'");
-  } else if(loc.xpaths.basic.includes("@placeholder=")){
-    value = loc.xpaths.basic.replace(/@placeholder="[^"]+"/, "@placeholder='%s'");
-  } else {
-    // fallback: match visible text
-    value = "//*[contains(normalize-space(text()),'%s')]";
-  }
+  },200);
 }
 
-if(panel === 'dynamic'){
-  // Group elements by type for Dynamic POM
-  const dynamicGroups = [
-    { type: 'inputs',    xpath: "//input[not(@type='checkbox') and (@name='%s' or @placeholder='%s')]" },
-    { type: 'checkboxes',xpath: "//input[@type='checkbox']" },
-    { type: 'dropdowns', xpath: "//select | //div[contains(@class,'dropdown')]" },
-    { type: 'buttons',   xpath: "//button[contains(normalize-space(.),'%s')] | //a[contains(@class,'btn')]" }
-  ];
-
-  // Instead of element-by-element locators, overwrite selectedLocs with grouped definitions
-  return buildArtifacts({fw, runner, lang, locs: dynamicGroups.map(g=>({
-    text: g.type,
-    chosenXpath: g.xpath
-  }))});
-}
-
-
-function javaSeleniumArtifacts(runner, locs){
-  const fields = locs.map((l,i)=>{
-    return `  @FindBy(xpath = "${l.chosenXpath || l.xpaths.basic}")\n  private List<WebElement> ${camel(l.text)};`;
-  }).join('\n\n');
-
-  const actions = locs.map((l,i)=>
-    `  public WebElement get_${camel(l.text)}(String value){\n`+
-    `    String finalXpath = String.format("${l.chosenXpath}", value, value);\n`+
-    `    return driver.findElement(By.xpath(finalXpath));\n  }`
-  ).join('\n\n');
-
-  ...
-}
-
-
-function javaPlaywrightArtifacts(runner, locs){
-  // If dynamic panel is active → group by type
-  if($('.chip.active')?.dataset.paneltab === 'dynamic'){
-    locs = [
-      { text: 'inputs',    chosenXpath: "//input[not(@type='checkbox') and (@name='%s' or @placeholder='%s')]" },
-      { text: 'checkboxes',chosenXpath: "//input[@type='checkbox']" },
-      { text: 'dropdowns', chosenXpath: "//select | //div[contains(@class,'dropdown')]" },
-      { text: 'buttons',   chosenXpath: "//button[contains(normalize-space(.),'%s')] | //a[contains(@class,'btn')]" }
-    ];
-  }
-
-  const fields = locs.map((l,i)=>`  private Locator ${camel(l.text)};`).join('\n');
-  
-  const initLines = locs.map((l,i)=>`    ${camel(l.text)} = page.locator("${l.chosenXpath || l.css}");`).join('\n');
-
-  const actions = locs.map((l,i)=>
-    `  public Locator get_${camel(l.text)}(String value){\n`+
-    `    String finalXpath = String.format("${l.chosenXpath}", value, value);\n`+
-    `    return page.locator(finalXpath);\n  }`
-  ).join('\n\n');
-
-  const pom = `import com.microsoft.playwright.*;
-
-public class SamplePage {
-  private final Page page;
-${fields}
-
-  public SamplePage(Page page){
-    this.page = page;
-${initLines}
-  }
-
-${actions}
-}
-`;
-
-  let steps='';
-  if(runner==='cucumber'){
-    steps = `import io.cucumber.java.en.*; 
-import com.microsoft.playwright.*;
-
-public class SampleSteps {
-  private Page page;
-  private SamplePage sample;
-
-  public SampleSteps(){ /* inject Playwright Page here */ }
-
-  @When("user enters {string} into {string} input")
-  public void enterIntoInput(String value, String field){
-    sample = new SamplePage(page);
-    sample.get_inputs(field).fill(value);
-  }
-
-  @When("user clicks {string} button")
-  public void clickButton(String label){
-    sample = new SamplePage(page);
-    sample.get_buttons(label).click();
-  }
-}
-`;
-  } else {
-    steps = `import org.testng.annotations.*; 
-import com.microsoft.playwright.*;
-
-public class SampleTest {
-  private Playwright playwright;
-  private Browser browser;
-  private Page page;
-
-  @BeforeClass
-  public void setup(){
-    playwright = Playwright.create();
-    browser = playwright.chromium().launch();
-    page = browser.newPage();
-  }
-
-  @Test
-  public void example(){
-    SamplePage sample = new SamplePage(page);
-    sample.get_inputs("username").fill("Vinodh");
-    sample.get_buttons("Login").click();
-  }
-
-  @AfterClass
-  public void cleanup(){
-    if(browser!=null) browser.close();
-    if(playwright!=null) playwright.close();
-  }
-}
-`;
-  }
-  return {pom, steps};
-}
-
-
-function jsPlaywrightArtifacts(locs){
-  // Dynamic grouping
-  if($('.chip.active')?.dataset.paneltab === 'dynamic'){
-    locs = [
-      { text: 'inputs',    chosenXpath: "//input[not(@type='checkbox') and (@name='%s' or @placeholder='%s')]" },
-      { text: 'checkboxes',chosenXpath: "//input[@type='checkbox']" },
-      { text: 'dropdowns', chosenXpath: "//select | //div[contains(@class,'dropdown')]" },
-      { text: 'buttons',   chosenXpath: "//button[contains(normalize-space(.),'%s')] | //a[contains(@class,'btn')]" }
-    ];
-  }
-
-  const lines = locs.map(l=>`  this.${camel(l.text)}Template = "${l.chosenXpath}";`).join('\n');
-  const actions = locs.map(l=>
-    `  get_${camel(l.text)}(field){\n    const finalXpath = this.${camel(l.text)}Template.replace(/%s/g, field);\n    return this.page.locator(finalXpath);\n  }`
-  ).join('\n\n');
-
-  const pom = `class SamplePage {
-  constructor(page){
-    this.page = page;
-${lines}
-  }
-
-${actions}
-}
-module.exports = { SamplePage };`;
-
-  const steps = `// Example usage with Playwright Test
-const { test } = require('@playwright/test');
-const { SamplePage } = require('./SamplePage');
-
-test('dynamic demo', async ({ page }) => {
-  const sample = new SamplePage(page);
-  await sample.get_inputs("username").fill("Vinodh");
-  await sample.get_buttons("Login").click();
-});`;
-
-  return {pom, steps};
-}
-
-
-function tsPlaywrightArtifacts(locs){
-  if($('.chip.active')?.dataset.paneltab === 'dynamic'){
-    locs = [
-      { text: 'inputs',    chosenXpath: "//input[not(@type='checkbox') and (@name='%s' or @placeholder='%s')]" },
-      { text: 'checkboxes',chosenXpath: "//input[@type='checkbox']" },
-      { text: 'dropdowns', chosenXpath: "//select | //div[contains(@class,'dropdown')]" },
-      { text: 'buttons',   chosenXpath: "//button[contains(normalize-space(.),'%s')] | //a[contains(@class,'btn')]" }
-    ];
-  }
-
-  const lines = locs.map(l=>`  private ${camel(l.text)}Template = "${l.chosenXpath}";`).join('\n');
-  const actions = locs.map(l=>
-    `  get_${camel(l.text)}(field: string){\n    const finalXpath = this.${camel(l.text)}Template.replace(/%s/g, field);\n    return this.page.locator(finalXpath);\n  }`
-  ).join('\n\n');
-
-  const pom = `import { Page, Locator } from '@playwright/test';
-
-export class SamplePage {
-  constructor(private page: Page){
-${lines}
-  }
-
-${actions}
-}`;
-
-  const steps = `// Example usage with Playwright Test
-import { test } from '@playwright/test';
-import { SamplePage } from './SamplePage';
-
-test('dynamic demo', async ({ page }) => {
-  const sample = new SamplePage(page);
-  await sample.get_inputs("username").fill("Vinodh");
-  await sample.get_buttons("Login").click();
-});`;
-
-  return {pom, steps};
-}
-
-
-function pyPlaywrightArtifacts(locs){
-  if($('.chip.active')?.dataset.paneltab === 'dynamic'){
-    locs = [
-      { text: 'inputs',    chosenXpath: "//input[not(@type='checkbox') and (@name='%s' or @placeholder='%s')]" },
-      { text: 'checkboxes',chosenXpath: "//input[@type='checkbox']" },
-      { text: 'dropdowns', chosenXpath: "//select | //div[contains(@class,'dropdown')]" },
-      { text: 'buttons',   chosenXpath: "//button[contains(normalize-space(.),'%s')] | //a[contains(@class,'btn')]" }
-    ];
-  }
-
-  const lines = locs.map(l=>`        self.${camel(l.text)}_template = "${l.chosenXpath}"`).join('\n');
-  const actions = locs.map(l=>
-`    def get_${camel(l.text)}(self, field: str):
-        final_xpath = self.${camel(l.text)}_template.replace("%s", field)
-        return self.page.locator(final_xpath)`
-  ).join('\n\n');
-
-  const pom = `class SamplePage:
-    def __init__(self, page):
-        self.page = page
-${lines}
-
-${actions}
-`;
-
-  const steps = `# Example usage with pytest
-def test_dynamic(page):
-    sample = SamplePage(page)
-    sample.get_inputs("username").fill("Vinodh")
-    sample.get_buttons("Login").click()`;
-
-  return {pom, steps};
-}
-
-// new fill
-
-function fillLocatorList(panel='basic'){
-  locList.innerHTML = '';
-  
-  // ⚡ Handle Dynamic tab separately
-  if(panel === 'dynamic'){
-    const groups = [
-      { type: 'inputs',    xpath: "//input[not(@type='checkbox') and (@name='%s' or @placeholder='%s')]" },
-      { type: 'checkboxes',xpath: "//input[@type='checkbox']" },
-      { type: 'dropdowns', xpath: "//select | //div[contains(@class,'dropdown')]" },
-      { type: 'buttons',   xpath: "//button[contains(normalize-space(.),'%s')] | //a[contains(@class,'btn')]" }
-    ];
-
-    groups.forEach(g=>{
-      const row = document.createElement('div');
-      row.className = 'loc-row';
-      row.innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
-          <span class="badge">Dynamic</span>
-          <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40ch">${g.type}</div>
-        </div>
-        <div class="small mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60ch" title="${g.xpath}">${g.xpath}</div>
-      `;
-      locList.appendChild(row);
-    });
-    return; // ✅ only for dynamic
-  }
-
-  // 🔹 Normal panels (basic, wildcards, axes, functions, sf, pega)
-  if(!CURRENT_LOCATORS.length){ return; }
-
-  CURRENT_LOCATORS.forEach(loc=>{
-    let value = (loc.xpaths?.[panel]) || loc.xpaths.basic;
-    if(panel === 'sf'   && loc.xpaths.sfsmart)   value = loc.xpaths.sfsmart   || loc.xpaths.sf;
-    if(panel === 'pega' && loc.xpaths.pegasmart) value = loc.xpaths.pegasmart || loc.xpaths.pega;
-
-    const row = document.createElement('div');
-    row.className = 'loc-row';
-    row.innerHTML = `
-      <input type="checkbox" class="loc-check" data-id="${loc.id}" style="margin-right:8px">
-      <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
-        <span class="badge">${(loc.framework||'').trim() || loc.tag}</span>
-        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40ch">${loc.text || '(no text)'}</div>
-      </div>
-      <div class="small mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60ch" title="${value}">${value}</div>
-    `;
-    row.addEventListener('click', async (e)=>{
-      if(e.target.classList.contains('loc-check')) return;
-      try{ await navigator.clipboard.writeText(value); }catch(e){}
-      showToast('Locator copied');
-      tryHighlightInPreviewByXPathOrCss({ xpath: value, css: loc.css });
-    });
-    locList.appendChild(row);
-  });
-}
-
-
-// dynamic
 
 $('#btnGenPOM').addEventListener('click', ()=>{
-  if(!CURRENT_LOCATORS.length && $('.chip.active')?.dataset.paneltab!=='dynamic')
-    return showToast('Render & extract first');
-
   const panel = $('.chip.active')?.dataset.paneltab || 'basic';
+  const className = $('#pageClassName').value?.trim() || "SamplePage";
 
   let locsWithPanel;
 
@@ -448,6 +39,8 @@ $('#btnGenPOM').addEventListener('click', ()=>{
       { text: 'buttons',   chosenXpath: "//button[contains(normalize-space(.),'%s')] | //a[contains(@class,'btn')]" }
     ];
   } else {
+    if(!CURRENT_LOCATORS.length) return showToast('Render & extract first');
+
     const checkedIds = $$('.loc-check:checked').map(cb => cb.dataset.id);
     const selectedLocs = CURRENT_LOCATORS.filter(l => checkedIds.includes(l.id));
     if(!selectedLocs.length) return showToast('Select at least one element');
@@ -467,11 +60,25 @@ $('#btnGenPOM').addEventListener('click', ()=>{
   const runner = $('.sw[data-runner].active').dataset.runner; 
   const lang = $('.sw[data-lang].active').dataset.lang;   
 
-  const res = buildArtifacts({fw, runner, lang, locs: locsWithPanel});
+  const res = buildArtifacts({fw, runner, lang, locs: locsWithPanel, className}); // ✅ pass className
   POM_CACHE = { pom: res.pom, steps: res.steps };
   output.value = `// ===== POM =====\n${res.pom}\n\n// ===== Steps =====\n${res.steps}`;
   showToast('POM + Steps generated');
 });
+
+
+
+
+function buildArtifacts({fw, runner, lang, locs, className}){
+  if(lang==='java'){
+    if(fw==='selenium') return javaSeleniumArtifacts(runner, locs, className);
+    return javaPlaywrightArtifacts(runner, locs, className);
+  }
+  if(lang==='javascript') return jsPlaywrightArtifacts(locs, className);
+  if(lang==='typescript') return tsPlaywrightArtifacts(locs, className);
+  if(lang==='python') return pyPlaywrightArtifacts(locs, className);
+  return {pom:'// Unsupported combination', steps:''};
+}
 
 
 
