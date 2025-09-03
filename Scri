@@ -172,3 +172,32 @@ document.querySelector('#presetMenu').addEventListener('change', function(e){
 
 
 
+function fillLocatorList(panel='basic'){
+  locList.innerHTML = '';
+  if(!CURRENT_LOCATORS.length){ return; }
+
+  CURRENT_LOCATORS.forEach(loc=>{
+    // prefer smart when user is on 'sf' or 'pega' panels
+    let value = (loc.xpaths?.[panel]) || loc.xpaths.basic;
+    if(panel === 'sf'   && loc.xpaths.sfsmart)   value = loc.xpaths.sfsmart   || loc.xpaths.sf;
+    if(panel === 'pega' && loc.xpaths.pegasmart) value = loc.xpaths.pegasmart || loc.xpaths.pega;
+
+    const row = document.createElement('div');
+    row.className = 'loc-row';
+    row.innerHTML = `
+      <input type="checkbox" class="loc-check" data-id="${loc.id}" style="margin-right:8px">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+        <span class="badge">${(loc.framework||'').trim() || loc.tag}</span>
+        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40ch">${loc.text || '(no text)'}</div>
+      </div>
+      <div class="small mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60ch" title="${value}">${value}</div>
+    `;
+    row.addEventListener('click', async (e)=>{
+      if(e.target.classList.contains('loc-check')) return; // don't copy when clicking checkbox
+      try{ await navigator.clipboard.writeText(value); }catch(e){}
+      showToast('Locator copied');
+      tryHighlightInPreviewByXPathOrCss({ xpath: value, css: loc.css });
+    });
+    locList.appendChild(row);
+  });
+}
