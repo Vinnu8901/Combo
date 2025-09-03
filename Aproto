@@ -112,9 +112,46 @@ Feature: API Test
 
 
 // ✅ API Studio Clear button
+// =========================
+// API Studio Hooks
+// =========================
 document.addEventListener("DOMContentLoaded", ()=>{
+
+  // Paste cURL from clipboard
+  $('#btnPasteCurl')?.addEventListener('click', async ()=>{
+    try{
+      const txt = await navigator.clipboard.readText();
+      if(!txt) return showToast('Clipboard empty');
+      parseCurl(txt); 
+      showToast('Parsed cURL');
+    }catch(e){ 
+      showToast('Clipboard blocked'); 
+    }
+  });
+
+  // Generate API code (from fields already filled)
+  $('#btnGenerateApi')?.addEventListener('click', ()=>{
+    generateApiCode(); 
+    showToast('API code generated');
+  });
+
+  // Copy API code to clipboard
+  $('#btnCopyApiCode')?.addEventListener('click', async ()=>{
+    await navigator.clipboard.writeText($('#apiCode').value||'');
+    showToast('Code copied');
+  });
+
+  // ✅ NEW: Generate API Code directly from pasted cURL
+  $('#btnGenAPI')?.addEventListener('click', ()=>{
+    const curl = $('#curlBox').value.trim();
+    if(!curl){ showToast('No cURL entered'); return; }
+    parseCurl(curl);        // auto-fill method/url/headers/body
+    generateApiCode();      // output RestAssured / Karate
+    showToast('API code generated');
+  });
+
+  // ✅ Clear API Studio fields
   $('#btnApiClear')?.addEventListener('click', ()=>{
-    // Reset all API Studio fields
     $('#curlBox').value = '';
     $('#apiMethod').value = 'GET';
     $('#apiUrl').value = '';
@@ -124,4 +161,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
     $('#apiResponse').value = '';
     showToast('API Studio cleared');
   });
+
 });
+
+
+
