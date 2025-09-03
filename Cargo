@@ -1,109 +1,118 @@
-$('#btnGenPOM').addEventListener('click', ()=>{
-  const panel = $('.chip.active')?.dataset.paneltab || 'basic';
-  const className = $('#pageClassName')?.value?.trim() || "SamplePage";
-
-  let locsWithPanel;
-
-  if(panel === 'dynamic'){
-    locsWithPanel = [
-      { text: 'inputs',    chosenXpath: "//input[not(@type='checkbox') and (@name='%s' or @placeholder='%s')]" },
-      { text: 'checkboxes',chosenXpath: "//input[@type='checkbox']" },
-      { text: 'dropdowns', chosenXpath: "//select | //div[contains(@class,'dropdown')]" },
-      { text: 'buttons',   chosenXpath: "//button[contains(normalize-space(.),'%s')] | //a[contains(@class,'btn')]" }
-    ];
-  } else {
-    if(!CURRENT_LOCATORS.length){
-      showToast('Render & extract first');
-      return;
-    }
-
-    const checkedIds = $$('.loc-check:checked').map(cb => cb.dataset.id);
-    const selectedLocs = CURRENT_LOCATORS.filter(l => checkedIds.includes(l.id));
-    if(!selectedLocs.length){
-      showToast('Select at least one element');
-      return;
-    }
-
-    locsWithPanel = selectedLocs.map(loc=>{
-      let value = loc.xpaths.basic;
-      if(panel === 'wildcards') value = loc.xpaths.wildcards;
-      if(panel === 'axes')      value = loc.xpaths.axes;
-      if(panel === 'functions') value = loc.xpaths.functions;
-      if(panel === 'sf')        value = loc.xpaths.sfsmart || loc.xpaths.sf;
-      if(panel === 'pega')      value = loc.xpaths.pegasmart || loc.xpaths.pega;
-      return {...loc, chosenXpath: value};
-    });
-  }
-
-  const fw = $('.sw[data-fw].active')?.dataset.fw;         
-  const runner = $('.sw[data-runner].active')?.dataset.runner; 
-  const lang = $('.sw[data-lang].active')?.dataset.lang;   
-
-  try {
-    const res = buildArtifacts({fw, runner, lang, locs: locsWithPanel, className});
-    POM_CACHE = { pom: res.pom, steps: res.steps };
-    output.value = `// ===== POM =====\n${res.pom}\n\n// ===== Steps =====\n${res.steps}`;
-    showToast('POM + Steps generated');
-  } catch(e){
-    console.error("POM generation failed:", e);
-    showToast("POM generation failed, see console");
-  }
-});
-
-
-function buildArtifacts({fw, runner, lang, locs, className}){
-  if(lang==='java'){
-    if(fw==='selenium') return javaSeleniumArtifacts(runner, locs, className);
-    return javaPlaywrightArtifacts(runner, locs, className);
-  }
-  if(lang==='javascript') return jsPlaywrightArtifacts(locs, className);
-  if(lang==='typescript') return tsPlaywrightArtifacts(locs, className);
-  if(lang==='python') return pyPlaywrightArtifacts(locs, className);
-  return {pom:'// Unsupported combination', steps:''};
-}
-
-
-
-
-
-
-
 function javaSeleniumArtifacts(runner, locs, className="SamplePage"){
-  const fields = locs.map((l,i)=>`  @FindBy(xpath = "${l.chosenXpath || l.xpaths.basic}")\n  private WebElement ${camel(l.text)||'elem'+(i+1)};`).join('\n\n');
+  const fields = locs.map((l,i)=>{
+    const name = camel(l.text)||'elem'+(i+1);
+    return `  @FindBy(xpath = "${l.chosenXpath || l.xpaths.basic}")\n  private WebElement ${name};`;
+  }).join('\n\n');
+
+  const actions = locs.map((l,i)=>{
+    const name = camel(l.text)||'elem'+(i+1);
+    const tag = l.tag || '';
+    let methods = '';
+
+    if(tag==='input'){
+      methods = `
+  public void type_${name}(String value){
+    ${name}.clear();
+    ${name}.sendKeys(value);
+  }
+  public boolean is_${name}Visible(){ return ${name}.isDisplayed(); }
+  public boolean is_${name}Interactable(){ return ${name}.isEnabled(); }
+  public boolean is_${name}Selected(){ return ${name}.isSelected(); }`;
+    }
+    else if(tag==='button'){
+      methods = `
+  public void click_${name}(){ ${name}.click(); }
+  public boolean is_${name}Visible(){ return ${name}.isDisplayed(); }
+  public boolean is_${name}Interactable(){ return ${name}.isEnabled(); }`;
+    }
+    else if(tag==='select'){
+      methods = `
+  public void select_${name}(String value){
+    new Select(${name}).selectByVisibleText(value);
+  }
+  public boolean is_${name}Visible(){ return ${name}.isDisplayed(); }`;
+    }
+    else if(tag==='input' && l.type==='checkbox'){
+      methods = `
+  public void click_${name}(){ ${name}.click(); }
+  public boolean is_${name}Selected(){ return ${name}.isSelected(); }`;
+    }
+    else {
+      methods = `
+  public boolean is_${name}Visible(){ return ${name}.isDisplayed(); }`;
+    }
+    return methods;
+  }).join('\n\n');
 
   const pom = `import org.openqa.selenium.*; 
 import org.openqa.selenium.support.FindBy;
 import org.openqa.selenium.support.PageFactory;
+import org.openqa.selenium.support.ui.*;
+
+import java.time.Duration;
 
 public class ${className} {
   private WebDriver driver;
+  private WebDriverWait wait;
+
 ${fields}
 
   public ${className}(WebDriver driver){
     this.driver = driver;
     PageFactory.initElements(driver, this);
+    this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
   }
+
+${actions}
 }`;
-
-  const steps = runner==='cucumber' ? 
-`import io.cucumber.java.en.*;
-
-public class ${className}Steps {
-  private ${className} page;
-}` :
-`import org.testng.annotations.*;
-
-public class ${className}Test {
-  private ${className} page;
-}`;
-  return {pom, steps};
+  return {pom, steps:""};
 }
 
 
 
+////
+
+
 function javaPlaywrightArtifacts(runner, locs, className="SamplePage"){
-  const fields = locs.map((l,i)=>`  private Locator ${camel(l.text)||'elem'+(i+1)};`).join('\n');
-  const initLines = locs.map((l,i)=>`    ${camel(l.text)||'elem'+(i+1)} = page.locator("${l.chosenXpath || l.css}");`).join('\n');
+  const fields = locs.map((l,i)=>{
+    const name = camel(l.text)||'elem'+(i+1);
+    return `  private Locator ${name};`;
+  }).join('\n');
+
+  const initLines = locs.map((l,i)=>{
+    const name = camel(l.text)||'elem'+(i+1);
+    return `    ${name} = page.locator("${l.chosenXpath || l.css}");`;
+  }).join('\n');
+
+  const actions = locs.map((l,i)=>{
+    const name = camel(l.text)||'elem'+(i+1);
+    const tag = l.tag || '';
+    let methods = '';
+
+    if(tag==='input'){
+      methods = `
+  public void type_${name}(String value){ ${name}.fill(value); }
+  public boolean is_${name}Visible(){ return ${name}.isVisible(); }
+  public boolean is_${name}Enabled(){ return ${name}.isEnabled(); }
+  public boolean is_${name}Checked(){ return ${name}.isChecked(); }`;
+    }
+    else if(tag==='button'){
+      methods = `
+  public void click_${name}(){ ${name}.click(); }
+  public boolean is_${name}Visible(){ return ${name}.isVisible(); }
+  public boolean is_${name}Enabled(){ return ${name}.isEnabled(); }`;
+    }
+    else if(tag==='select'){
+      methods = `
+  public void select_${name}(String value){ ${name}.selectOption(value); }
+  public boolean is_${name}Visible(){ return ${name}.isVisible(); }`;
+    }
+    else {
+      methods = `
+  public boolean is_${name}Visible(){ return ${name}.isVisible(); }`;
+    }
+    return methods;
+  }).join('\n\n');
 
   const pom = `import com.microsoft.playwright.*;
 
@@ -115,27 +124,341 @@ ${fields}
     this.page = page;
 ${initLines}
   }
+
+${actions}
 }`;
+  return {pom, steps:""};
+}
 
-  const steps = runner==='cucumber' ? 
-`import io.cucumber.java.en.*;
 
-public class ${className}Steps {
-  private ${className} page;
-}` :
-`import org.testng.annotations.*;
 
-public class ${className}Test {
-  private ${className} page;
+////
+
+
+function jsPlaywrightArtifacts(locs, className="SamplePage"){
+  const lines = locs.map(l=>`    this.${camel(l.text)||'elem'} = this.page.locator("${l.chosenXpath || l.css}");`).join('\n');
+
+  const actions = locs.map(l=>{
+    const name = camel(l.text)||'elem';
+    const tag = l.tag || '';
+    let methods = '';
+
+    if(tag==='input'){
+      methods = `
+  async type_${name}(value){ await this.${name}.fill(value); }
+  async is_${name}Visible(){ return await this.${name}.isVisible(); }
+  async is_${name}Enabled(){ return await this.${name}.isEnabled(); }
+  async is_${name}Checked(){ return await this.${name}.isChecked(); }`;
+    }
+    else if(tag==='button'){
+      methods = `
+  async click_${name}(){ await this.${name}.click(); }
+  async is_${name}Visible(){ return await this.${name}.isVisible(); }
+  async is_${name}Enabled(){ return await this.${name}.isEnabled(); }`;
+    }
+    else {
+      methods = `
+  async is_${name}Visible(){ return await this.${name}.isVisible(); }`;
+    }
+    return methods;
+  }).join('\n\n');
+
+  const pom = `class ${className} {
+  constructor(page){
+    this.page = page;
+${lines}
+  }
+
+${actions}
+}
+module.exports = { ${className} };`;
+  return {pom, steps:""};
+}
+
+
+///
+function tsPlaywrightArtifacts(locs, className="SamplePage"){
+  const lines = locs.map(l=>`    this.${camel(l.text)||'elem'} = this.page.locator("${l.chosenXpath || l.css}");`).join('\n');
+
+  const actions = locs.map(l=>{
+    const name = camel(l.text)||'elem';
+    const tag = l.tag || '';
+    let methods = '';
+
+    if(tag==='input'){
+      methods = `
+  async type_${name}(value: string){ await this.${name}.fill(value); }
+  async is_${name}Visible(){ return await this.${name}.isVisible(); }
+  async is_${name}Enabled(){ return await this.${name}.isEnabled(); }
+  async is_${name}Checked(){ return await this.${name}.isChecked(); }`;
+    }
+    else if(tag==='button'){
+      methods = `
+  async click_${name}(){ await this.${name}.click(); }
+  async is_${name}Visible(){ return await this.${name}.isVisible(); }
+  async is_${name}Enabled(){ return await this.${name}.isEnabled(); }`;
+    }
+    else {
+      methods = `
+  async is_${name}Visible(){ return await this.${name}.isVisible(); }`;
+    }
+    return methods;
+  }).join('\n\n');
+
+  const pom = `import { Page } from '@playwright/test';
+
+export class ${className} {
+  constructor(private page: Page){
+${lines}
+  }
+
+${actions}
 }`;
-  return {pom, steps};
+  return {pom, steps:""};
 }
 
 
 
 
+////
 
 
+function pyPlaywrightArtifacts(locs, className="SamplePage"){
+  const lines = locs.map(l=>`        self.${camel(l.text)||'elem'} = page.locator("${l.chosenXpath || l.css}")`).join('\n');
+
+  const actions = locs.map(l=>{
+    const name = camel(l.text)||'elem';
+    const tag = l.tag || '';
+    let methods = '';
+
+    if(tag==='input'){
+      methods = `
+    def type_${name}(self, value: str):
+        self.${name}.fill(value)
+
+    def is_${name}_visible(self):
+        return self.${name}.is_visible()
+
+    def is_${name}_enabled(self):
+        return self.${name}.is_enabled()
+
+    def is_${name}_checked(self):
+        return self.${name}.is_checked()`;
+    }
+    elif(tag==='button'){
+      methods = `
+    def click_${name}(self):
+        self.${name}.click()
+
+    def is_${name}_visible(self):
+        return self.${name}.is_visible()
+
+    def is_${name}_enabled(self):
+        return self.${name}.is_enabled()`;
+    }
+    else:
+      methods = `
+    def is_${name}_visible(self):
+        return self.${name}.is_visible()`;
+    return methods;
+  }).join('\n\n');
+
+  const pom = `class ${className}:
+    def __init__(self, page):
+        self.page = page
+${lines}
+
+${actions}
+`;
+  return {pom, steps:""};
+}
+
+
+
+////
+
+function jsSeleniumArtifacts(locs, className="SamplePage"){
+  const fields = locs.map(l=>{
+    const name = camel(l.text)||'elem';
+    return `    this.${name} = driver.findElement(By.xpath("${l.chosenXpath || l.xpaths.basic}"));`;
+  }).join('\n');
+
+  const actions = locs.map(l=>{
+    const name = camel(l.text)||'elem';
+    const tag = l.tag || '';
+    let methods = '';
+
+    if(tag==='input'){
+      methods = `
+  async type_${name}(value){ await this.${name}.sendKeys(value); }
+  async is_${name}Displayed(){ return await this.${name}.isDisplayed(); }
+  async is_${name}Enabled(){ return await this.${name}.isEnabled(); }
+  async is_${name}Selected(){ return await this.${name}.isSelected(); }`;
+    }
+    else if(tag==='button'){
+      methods = `
+  async click_${name}(){ await this.${name}.click(); }
+  async is_${name}Displayed(){ return await this.${name}.isDisplayed(); }
+  async is_${name}Enabled(){ return await this.${name}.isEnabled(); }`;
+    }
+    else {
+      methods = `
+  async is_${name}Displayed(){ return await this.${name}.isDisplayed(); }`;
+    }
+    return methods;
+  }).join('\n\n');
+
+  const pom = `const { Builder, By } = require('selenium-webdriver');
+
+class ${className} {
+  constructor(driver){
+    this.driver = driver;
+${fields}
+  }
+
+${actions}
+}
+
+module.exports = { ${className} };`;
+
+  return {pom, steps:""};
+}
+
+
+
+////
+function tsSeleniumArtifacts(locs, className="SamplePage"){
+  const fields = locs.map(l=>{
+    const name = camel(l.text)||'elem';
+    return `    this.${name} = driver.findElement(By.xpath("${l.chosenXpath || l.xpaths.basic}"));`;
+  }).join('\n');
+
+  const actions = locs.map(l=>{
+    const name = camel(l.text)||'elem';
+    const tag = l.tag || '';
+    let methods = '';
+
+    if(tag==='input'){
+      methods = `
+  async type_${name}(value: string){ await this.${name}.sendKeys(value); }
+  async is_${name}Displayed(){ return await this.${name}.isDisplayed(); }
+  async is_${name}Enabled(){ return await this.${name}.isEnabled(); }
+  async is_${name}Selected(){ return await this.${name}.isSelected(); }`;
+    }
+    else if(tag==='button'){
+      methods = `
+  async click_${name}(){ await this.${name}.click(); }
+  async is_${name}Displayed(){ return await this.${name}.isDisplayed(); }
+  async is_${name}Enabled(){ return await this.${name}.isEnabled(); }`;
+    }
+    else {
+      methods = `
+  async is_${name}Displayed(){ return await this.${name}.isDisplayed(); }`;
+    }
+    return methods;
+  }).join('\n\n');
+
+  const pom = `import { Builder, By, WebDriver, WebElement } from 'selenium-webdriver';
+
+export class ${className} {
+  private driver: WebDriver;
+${locs.map(l=>`  private ${camel(l.text)||'elem'}: WebElement;`).join('\n')}
+
+  constructor(driver: WebDriver){
+    this.driver = driver;
+${fields}
+  }
+
+${actions}
+}`;
+  return {pom, steps:""};
+}
+
+
+
+////
+
+
+
+function pySeleniumArtifacts(locs, className="SamplePage"){
+  const fields = locs.map(l=>{
+    const name = camel(l.text)||'elem';
+    return `        self.${name} = driver.find_element(By.XPATH, "${l.chosenXpath || l.xpaths.basic}")`;
+  }).join('\n');
+
+  const actions = locs.map(l=>{
+    const name = camel(l.text)||'elem';
+    const tag = l.tag || '';
+    let methods = '';
+
+    if(tag==='input'){
+      methods = `
+    def type_${name}(self, value: str):
+        self.${name}.send_keys(value)
+
+    def is_${name}_displayed(self):
+        return self.${name}.is_displayed()
+
+    def is_${name}_enabled(self):
+        return self.${name}.is_enabled()
+
+    def is_${name}_selected(self):
+        return self.${name}.is_selected()`;
+    }
+    elif(tag==='button'){
+      methods = `
+    def click_${name}(self):
+        self.${name}.click()
+
+    def is_${name}_displayed(self):
+        return self.${name}.is_displayed()
+
+    def is_${name}_enabled(self):
+        return self.${name}.is_enabled()`;
+    }
+    else:
+      methods = `
+    def is_${name}_displayed(self):
+        return self.${name}.is_displayed()`;
+    return methods;
+  }).join('\n\n');
+
+  const pom = `from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webdriver import WebDriver
+
+class ${className}:
+    def __init__(self, driver: WebDriver):
+        self.driver = driver
+${fields}
+
+${actions}
+`;
+  return {pom, steps:""};
+}
+
+
+////
+
+
+function buildArtifacts({fw, runner, lang, locs, className}){
+  if(lang==='java'){
+    if(fw==='selenium') return javaSeleniumArtifacts(runner, locs, className);
+    return javaPlaywrightArtifacts(runner, locs, className);
+  }
+  if(lang==='javascript'){
+    if(fw==='selenium') return jsSeleniumArtifacts(locs, className);
+    return jsPlaywrightArtifacts(locs, className);
+  }
+  if(lang==='typescript'){
+    if(fw==='selenium') return tsSeleniumArtifacts(locs, className);
+    return tsPlaywrightArtifacts(locs, className);
+  }
+  if(lang==='python'){
+    if(fw==='selenium') return pySeleniumArtifacts(locs, className);
+    return pyPlaywrightArtifacts(locs, className);
+  }
+  return {pom:'// Unsupported combination', steps:''};
+}
 
 
 
