@@ -1,29 +1,31 @@
-<!-- Left panel for POM Studio -->
-<section id="pomLeftCard" class="card">
-  <div class="head">Paste HTML</div>
-  <div class="body">
-    <textarea id="pasteBox" class="ed" placeholder="Paste full page HTML here..."></textarea>
-    <div class="row">
-      <button id="btnRender" class="btn primary" style="width:auto">Render Preview</button>
-      <div class="pill mono">shadow DOM supported at runtime</div>
-    </div>
-    <div class="head" style="margin:6px -12px 0;border-radius:10px">Preview</div>
-    <div class="drop" id="dropZone">Drop .html here</div>
-    <iframe id="preview" sandbox="allow-same-origin allow-forms allow-scripts"></iframe>
-  </div>
-</section>
+Changes to Dhyan.html
+
+1. Left Panel for API Studio
+
+Add this section (replace the old left side used for POM):
 
 <!-- Left panel for API Studio -->
 <section id="apiLeftCard" class="card hidden">
   <div class="head">Paste cURL</div>
   <div class="body">
-    <textarea id="curlBox" class="ed mono" placeholder="Paste full cURL command here..."></textarea>
-    <div class="row">
+    <textarea id="curlBox" class="ed mono" placeholder="Paste full cURL command here (from Postman/Insomnia)..."></textarea>
+    <div class="row" style="align-items:center; gap:12px">
+      <label class="small">Framework</label>
+      <select id="apiFramework">
+        <option value="restassured">RestAssured (Java)</option>
+        <option value="karate">Karate DSL</option>
+      </select>
       <button id="btnGenAPI" class="btn primary" style="width:auto">Generate API Code</button>
     </div>
   </div>
 </section>
 
+
+---
+
+2. Update setMode()
+
+So that when API Studio is selected, it hides POM panel and shows API panel only:
 
 function setMode(m){
   modePOM.classList.remove('active'); 
@@ -46,11 +48,60 @@ function setMode(m){
 }
 
 
+---
 
+3. Hook the new Generate API Code button
+
+Add this block after your existing API hooks in the <script>:
+
+// NEW: Generate API Code directly from pasted cURL
 $('#btnGenAPI').addEventListener('click', ()=>{
   const curl = $('#curlBox').value.trim();
   if(!curl){ showToast('No cURL entered'); return; }
-  parseCurl(curl);
-  generateApiCode();  // this now outputs RestAssured + Karate
+  parseCurl(curl);              // extract Method, Endpoint, Headers, Body
+  generateApiCode();            // build code snippet
   showToast('API code generated');
 });
+
+
+---
+
+4. Update generateApiCode() to respect framework selection
+
+Replace your current function with this:
+
+function generateApiCode(){
+  const method = $('#apiMethod').value;
+  const url = $('#apiUrl').value;
+  let headers = $('#apiHeaders').value;
+  const body = $('#apiBody').value;
+  const framework = $('#apiFramework').value; // restassured | karate
+
+  try { headers = JSON.stringify(JSON.parse(headers), null, 2); } catch(e) {}
+
+  let code = "";
+
+  if(framework === "restassured"){
+    code = `// RestAssured Example
+given()
+  .headers(${headers})
+  .body(${body})
+.when()
+  .${method.toLowerCase()}("${url}")
+.then()
+  .statusCode(200);`;
+  }
+  else if(framework === "karate"){
+    code = `# Karate DSL Example
+Feature: API Test
+  Scenario: ${method} request
+    Given url '${url}'
+    And headers ${headers}
+    And request ${body}
+    When method ${method.toLowerCase()}
+    Then status 200`;
+  }
+
+  $('#apiCode').value = code;
+}
+
