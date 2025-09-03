@@ -402,3 +402,122 @@ function parseCurl(curl){
   }
 }
 
+
+
+
+
+//ghahhsj//
+
+
+
+function generateApiCode(){
+  const method = $('#apiMethod').value;
+  const url = $('#apiUrl').value;
+  let headers = $('#apiHeaders').value;
+  let body = $('#apiBody').value;
+  const framework = $('#apiFramework').value; // restassured | karate
+
+  // ✅ Pretty-print headers if valid JSON
+  try { headers = JSON.stringify(JSON.parse(headers), null, 2); } catch(e) {}
+
+  let code = "";
+
+  // -----------------------------
+  // REST ASSURED
+  // -----------------------------
+  if(framework === "restassured"){
+    let rest = `// RestAssured Example
+given()
+  .headers(${headers})`;
+
+    // Body detection
+    try {
+      const json = JSON.parse(body);
+      rest += `
+  .body(${JSON.stringify(json, null, 2)})`;
+    } catch(e){
+      if(body.includes("multipart field") || body.includes("multipart file")){
+        // Multipart handling
+        body.split("\n").forEach(line=>{
+          if(line.includes("multipart field")){
+            const [_, key, value] = line.match(/field (\S+) = '([^']+)'/);
+            rest += `
+  .multiPart("${key}", "${value}")`;
+          }
+          if(line.includes("multipart file")){
+            const [_, key, file] = line.match(/file (\S+) = { read: '([^']+)'/);
+            rest += `
+  .multiPart("${key}", new File("${file}"))`;
+          }
+        });
+      } else if(body.includes("=")){
+        // URL Encoded
+        body.replace(/[\{\}\n"]/g,"").split(",").forEach(pair=>{
+          const [k,v] = pair.split(":").map(s=>s.trim());
+          if(k && v){
+            rest += `
+  .formParam("${k}", "${v}")`;
+          }
+        });
+      }
+    }
+
+    rest += `
+.when()
+  .${method.toLowerCase()}("${url}")
+.then()
+  .statusCode(200);`;
+
+    code = rest;
+  }
+
+  // -----------------------------
+  // KARATE
+  // -----------------------------
+  else if(framework === "karate"){
+    let karate = `# Karate DSL Example
+Feature: API Test
+  Scenario: ${method} request
+    Given url '${url}'
+    And headers ${headers}`;
+
+    try {
+      const json = JSON.parse(body);
+      karate += `
+    And request ${JSON.stringify(json, null, 2)}`;
+    } catch(e){
+      if(body.includes("multipart field") || body.includes("multipart file")){
+        // Karate multipart (already formatted by parseCurl)
+        karate += `
+    ${body}`;
+      } else if(body.includes("=")){
+        // Karate form-urlencoded
+        karate += `
+    And form fields ${body}`;
+      }
+    }
+
+    karate += `
+    When method ${method.toLowerCase()}
+    Then status 200`;
+
+    code = karate;
+  }
+
+  $('#apiCode').value = code;
+}
+
+
+
+
+
+
+
+
+
+
+.
+
+
+
+
