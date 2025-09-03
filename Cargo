@@ -1,33 +1,6 @@
-function renderPreview(){
-  const html = pasteBox.value?.trim();
-
-  if(!html){
-    showToast("Textarea is empty. Paste HTML first.");
-    return;
-  }
-
-  CURRENT_HTML = html;
-  preview.removeAttribute("sandbox");   // ✅ allow rendering
-  preview.srcdoc = html;
-
-  const parser = new DOMParser();
-  CURRENT_DOC = parser.parseFromString(html, 'text/html');
-
-  setTimeout(()=>{
-    try {
-      extractAllLocators();
-      showToast('Preview rendered + Locators extracted');
-    } catch(e){
-      console.error("extractAllLocators failed:", e);
-      showToast("Locator extraction failed");
-    }
-  },200);
-}
-
-
 $('#btnGenPOM').addEventListener('click', ()=>{
   const panel = $('.chip.active')?.dataset.paneltab || 'basic';
-  const className = $('#pageClassName').value?.trim() || "SamplePage";
+  const className = $('#pageClassName')?.value?.trim() || "SamplePage";
 
   let locsWithPanel;
 
@@ -39,11 +12,17 @@ $('#btnGenPOM').addEventListener('click', ()=>{
       { text: 'buttons',   chosenXpath: "//button[contains(normalize-space(.),'%s')] | //a[contains(@class,'btn')]" }
     ];
   } else {
-    if(!CURRENT_LOCATORS.length) return showToast('Render & extract first');
+    if(!CURRENT_LOCATORS.length){
+      showToast('Render & extract first');
+      return;
+    }
 
     const checkedIds = $$('.loc-check:checked').map(cb => cb.dataset.id);
     const selectedLocs = CURRENT_LOCATORS.filter(l => checkedIds.includes(l.id));
-    if(!selectedLocs.length) return showToast('Select at least one element');
+    if(!selectedLocs.length){
+      showToast('Select at least one element');
+      return;
+    }
 
     locsWithPanel = selectedLocs.map(loc=>{
       let value = loc.xpaths.basic;
@@ -56,32 +35,17 @@ $('#btnGenPOM').addEventListener('click', ()=>{
     });
   }
 
-  const fw = $('.sw[data-fw].active').dataset.fw;         
-  const runner = $('.sw[data-runner].active').dataset.runner; 
-  const lang = $('.sw[data-lang].active').dataset.lang;   
+  const fw = $('.sw[data-fw].active')?.dataset.fw;         
+  const runner = $('.sw[data-runner].active')?.dataset.runner; 
+  const lang = $('.sw[data-lang].active')?.dataset.lang;   
 
-  const res = buildArtifacts({fw, runner, lang, locs: locsWithPanel, className}); // ✅ pass className
-  POM_CACHE = { pom: res.pom, steps: res.steps };
-  output.value = `// ===== POM =====\n${res.pom}\n\n// ===== Steps =====\n${res.steps}`;
-  showToast('POM + Steps generated');
-});
-
-
-
-
-function buildArtifacts({fw, runner, lang, locs, className}){
-  if(lang==='java'){
-    if(fw==='selenium') return javaSeleniumArtifacts(runner, locs, className);
-    return javaPlaywrightArtifacts(runner, locs, className);
+  try {
+    const res = buildArtifacts({fw, runner, lang, locs: locsWithPanel, className});
+    POM_CACHE = { pom: res.pom, steps: res.steps };
+    output.value = `// ===== POM =====\n${res.pom}\n\n// ===== Steps =====\n${res.steps}`;
+    showToast('POM + Steps generated');
+  } catch(e){
+    console.error("POM generation failed:", e);
+    showToast("POM generation failed, see console");
   }
-  if(lang==='javascript') return jsPlaywrightArtifacts(locs, className);
-  if(lang==='typescript') return tsPlaywrightArtifacts(locs, className);
-  if(lang==='python') return pyPlaywrightArtifacts(locs, className);
-  return {pom:'// Unsupported combination', steps:''};
-}
-
-
-
-
-
-
+});
