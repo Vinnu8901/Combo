@@ -1,15 +1,28 @@
-<!-- Left (for API Studio only) -->
-<section id="leftCard" class="card">
-  <div class="head" id="leftHead">Paste cURL</div>
-  <div class="body" id="leftBody">
-    <textarea id="curlBox" class="ed mono" placeholder="Paste full cURL command here..."></textarea>
+<!-- Left panel for POM Studio -->
+<section id="pomLeftCard" class="card">
+  <div class="head">Paste HTML</div>
+  <div class="body">
+    <textarea id="pasteBox" class="ed" placeholder="Paste full page HTML here..."></textarea>
     <div class="row">
-      <button id="btnParseCurlBox" class="btn primary" style="width:auto">Parse cURL</button>
+      <button id="btnRender" class="btn primary" style="width:auto">Render Preview</button>
+      <div class="pill mono">shadow DOM supported at runtime</div>
     </div>
+    <div class="head" style="margin:6px -12px 0;border-radius:10px">Preview</div>
+    <div class="drop" id="dropZone">Drop .html here</div>
+    <iframe id="preview" sandbox="allow-same-origin allow-forms allow-scripts"></iframe>
   </div>
 </section>
 
-
+<!-- Left panel for API Studio -->
+<section id="apiLeftCard" class="card hidden">
+  <div class="head">Paste cURL</div>
+  <div class="body">
+    <textarea id="curlBox" class="ed mono" placeholder="Paste full cURL command here..."></textarea>
+    <div class="row">
+      <button id="btnGenAPI" class="btn primary" style="width:auto">Generate API Code</button>
+    </div>
+  </div>
+</section>
 
 
 function setMode(m){
@@ -20,54 +33,24 @@ function setMode(m){
     modePOM.classList.add('active'); 
     pomPanel.classList.remove('hidden'); 
     apiPanel.classList.add('hidden'); 
-    document.querySelector('#curlBox')?.parentElement.classList.add('hidden');
+    $('#pomLeftCard').classList.remove('hidden');
+    $('#apiLeftCard').classList.add('hidden');
   }
   else { 
     modeAPI.classList.add('active'); 
     pomPanel.classList.add('hidden'); 
     apiPanel.classList.remove('hidden'); 
-    document.querySelector('#curlBox')?.parentElement.classList.remove('hidden');
+    $('#pomLeftCard').classList.add('hidden');
+    $('#apiLeftCard').classList.remove('hidden');
   }
 }
 
 
-$('#btnParseCurlBox').addEventListener('click', ()=>{
+
+$('#btnGenAPI').addEventListener('click', ()=>{
   const curl = $('#curlBox').value.trim();
   if(!curl){ showToast('No cURL entered'); return; }
   parseCurl(curl);
-  showToast('Parsed cURL from textarea');
+  generateApiCode();  // this now outputs RestAssured + Karate
+  showToast('API code generated');
 });
-
-
-
-function generateApiCode(){
-  const method = $('#apiMethod').value;
-  const url = $('#apiUrl').value;
-  let headers = $('#apiHeaders').value;
-  const body = $('#apiBody').value;
-
-  try { headers = JSON.stringify(JSON.parse(headers), null, 2); } catch(e) {}
-
-  // ---- RestAssured ----
-  const rest = `// RestAssured Example
-given()
-  .headers(${headers})
-  .body(${body})
-.when()
-  .${method.toLowerCase()}("${url}")
-.then()
-  .statusCode(200);`;
-
-  // ---- Karate DSL ----
-  const karate = `# Karate DSL Example
-Feature: API Test
-  Scenario: ${method} request
-    Given url '${url}'
-    And headers ${headers}
-    And request ${body}
-    When method ${method.toLowerCase()}
-    Then status 200`;
-
-  $('#apiCode').value = rest + "\n\n" + karate;
-}
-
