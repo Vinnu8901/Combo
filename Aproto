@@ -165,4 +165,47 @@ document.addEventListener("DOMContentLoaded", ()=>{
 });
 
 
+function parseCurl(curl){
+  try {
+    // 🔥 Step 1: Normalize
+    curl = curl.replace(/\\\s*\n/g, ' ');  // join lines with backslashes
+    curl = curl.replace(/\n+/g, ' ');      // remove plain line breaks
+    curl = curl.trim();
 
+    // 🔥 Step 2: Extract method
+    let method = (curl.match(/-X\s+(GET|POST|PUT|DELETE|PATCH)/i) || [])[1];
+    if(!method){
+      // auto-detect: if data present → assume POST, else GET
+      if(/--data/.test(curl) || /--data-raw/.test(curl) || /--data-binary/.test(curl)){
+        method = 'POST';
+      } else {
+        method = 'GET';
+      }
+    }
+
+    // 🔥 Step 3: Extract URL
+    const url = (curl.match(/curl\s+['"]?([^'"\s]+)/i) || [])[1] || '';
+
+    // 🔥 Step 4: Extract headers
+    const headers = {};
+    const headerRegex = /-H\s+["']?([^:"']+):\s*([^"']+)["']?/gi;
+    let h;
+    while((h = headerRegex.exec(curl)) !== null){
+      headers[h[1]] = h[2];
+    }
+
+    // 🔥 Step 5: Extract body
+    const dataMatch = curl.match(/--data(?:-raw)?\s+['"]([^']+)['"]/i) 
+                   || curl.match(/--data-binary\s+['"]([^']+)['"]/i);
+
+    // 🔥 Step 6: Fill UI fields
+    $('#apiMethod').value = method.toUpperCase();
+    $('#apiUrl').value = url;
+    $('#apiHeaders').value = JSON.stringify(headers, null, 2);
+    $('#apiBody').value = dataMatch ? dataMatch[1] : '{}';
+
+  } catch(e){
+    console.error("parseCurl failed:", e);
+    showToast("Failed to parse cURL");
+  }
+}
