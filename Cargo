@@ -49,3 +49,98 @@ $('#btnGenPOM').addEventListener('click', ()=>{
     showToast("POM generation failed, see console");
   }
 });
+
+
+function buildArtifacts({fw, runner, lang, locs, className}){
+  if(lang==='java'){
+    if(fw==='selenium') return javaSeleniumArtifacts(runner, locs, className);
+    return javaPlaywrightArtifacts(runner, locs, className);
+  }
+  if(lang==='javascript') return jsPlaywrightArtifacts(locs, className);
+  if(lang==='typescript') return tsPlaywrightArtifacts(locs, className);
+  if(lang==='python') return pyPlaywrightArtifacts(locs, className);
+  return {pom:'// Unsupported combination', steps:''};
+}
+
+
+
+
+
+
+
+function javaSeleniumArtifacts(runner, locs, className="SamplePage"){
+  const fields = locs.map((l,i)=>`  @FindBy(xpath = "${l.chosenXpath || l.xpaths.basic}")\n  private WebElement ${camel(l.text)||'elem'+(i+1)};`).join('\n\n');
+
+  const pom = `import org.openqa.selenium.*; 
+import org.openqa.selenium.support.FindBy;
+import org.openqa.selenium.support.PageFactory;
+
+public class ${className} {
+  private WebDriver driver;
+${fields}
+
+  public ${className}(WebDriver driver){
+    this.driver = driver;
+    PageFactory.initElements(driver, this);
+  }
+}`;
+
+  const steps = runner==='cucumber' ? 
+`import io.cucumber.java.en.*;
+
+public class ${className}Steps {
+  private ${className} page;
+}` :
+`import org.testng.annotations.*;
+
+public class ${className}Test {
+  private ${className} page;
+}`;
+  return {pom, steps};
+}
+
+
+
+function javaPlaywrightArtifacts(runner, locs, className="SamplePage"){
+  const fields = locs.map((l,i)=>`  private Locator ${camel(l.text)||'elem'+(i+1)};`).join('\n');
+  const initLines = locs.map((l,i)=>`    ${camel(l.text)||'elem'+(i+1)} = page.locator("${l.chosenXpath || l.css}");`).join('\n');
+
+  const pom = `import com.microsoft.playwright.*;
+
+public class ${className} {
+  private final Page page;
+${fields}
+
+  public ${className}(Page page){
+    this.page = page;
+${initLines}
+  }
+}`;
+
+  const steps = runner==='cucumber' ? 
+`import io.cucumber.java.en.*;
+
+public class ${className}Steps {
+  private ${className} page;
+}` :
+`import org.testng.annotations.*;
+
+public class ${className}Test {
+  private ${className} page;
+}`;
+  return {pom, steps};
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
