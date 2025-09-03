@@ -510,13 +510,103 @@ Feature: API Test
 
 
 
+<!-- ===================== -->
+<!-- API Studio Sidebar -->
+<!-- ===================== -->
+<div class="section">API Studio</div>
+
+<!-- Paste cURL -->
+<button id="btnPasteCurlText" class="btn">Paste cURL</button>
+
+<!-- Open cURL File -->
+<input type="file" id="openCurlFile" accept=".txt,.curl" style="margin-top:10px;" />
+
+<!-- Framework Selector -->
+<label style="margin-top:10px; display:block;">Framework</label>
+<select id="apiFramework" class="ed">
+  <option value="restassured">RestAssured (Java)</option>
+  <option value="karate">Karate DSL</option>
+</select>
+
+<!-- Generate & Download -->
+<button id="btnGenAPI" class="btn primary" style="margin-top:10px;">Generate API Code</button>
+<button id="btnApiDownload" class="btn" style="margin-top:10px;">Download API File</button>
+
+<!-- Clear -->
+<button id="btnApiClear" class="btn danger" style="margin-top:10px;">Clear</button>
+
+
+//uog
+
+<!-- ===================== -->
+<!-- Workspace for POM -->
+<!-- ===================== -->
+<div id="pomWorkspace">
+  <div class="section">Workspace</div>
+  <button id="btnPaste" class="btn">Paste HTML</button>
+  <button id="btnOpenFile" class="btn">Open .html file</button>
+</div>
+
+<!-- ===================== -->
+<!-- Workspace for API -->
+<!-- ===================== -->
+<div id="apiWorkspace" style="display:none;">
+  <div class="section">Workspace</div>
+  <button id="btnPasteCurlText" class="btn">Paste cURL</button>
+  <input type="file" id="openCurlFile" accept=".txt,.curl" style="margin-top:10px;" />
+</div>
+
+
+
+
+<!-- POM Sidebar -->
+<div id="pomSidebar">
+  <div class="section">POM & Steps</div>
+  <!-- your POM buttons here -->
+</div>
+
+<!-- API Sidebar -->
+<div id="apiSidebar" style="display:none;">
+  <div class="section">API Studio</div>
+  <label>Framework</label>
+  <select id="apiFramework" class="ed">
+    <option value="restassured">RestAssured (Java)</option>
+    <option value="karate">Karate DSL</option>
+  </select>
+  <button id="btnGenAPI" class="btn primary">Generate API Code</button>
+  <button id="btnApiDownload" class="btn">Download API File</button>
+  <button id="btnApiClear" class="btn danger">Clear</button>
+</div>
+
+
+
+// POM Studio tab clicked
+$('#tabPom')?.addEventListener('click', ()=>{
+  // Workspace
+  $('#pomWorkspace').style.display = 'block';
+  $('#apiWorkspace').style.display = 'none';
+  // Sidebars
+  $('#pomSidebar').style.display = 'block';
+  $('#apiSidebar').style.display = 'none';
+});
+
+// API Studio tab clicked
+$('#tabApi')?.addEventListener('click', ()=>{
+  // Workspace
+  $('#pomWorkspace').style.display = 'none';
+  $('#apiWorkspace').style.display = 'block';
+  // Sidebars
+  $('#pomSidebar').style.display = 'none';
+  $('#apiSidebar').style.display = 'block';
+});
 
 
 
 
 
 
-.
+
+
 
 
 
