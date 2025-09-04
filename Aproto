@@ -1,613 +1,374 @@
-<!-- Left panel for POM Studio -->
-<section id="pomLeftCard" class="card">
-  <div class="head">Paste HTML</div>
-  <div class="body">
-    <textarea id="pasteBox" class="ed" placeholder="Paste full page HTML here..."></textarea>
-    <div class="row">
-      <button id="btnRender" class="btn primary" style="width:auto">Render Preview</button>
-      <div class="pill mono">shadow DOM supported at runtime</div>
-    </div>
-    <div class="head" style="margin:6px -12px 0;border-radius:10px">Preview</div>
-    <div class="drop" id="dropZone">Drop .html here</div>
-    <iframe id="preview" sandbox="allow-same-origin allow-forms allow-scripts"></iframe>
-  </div>
-</section>
+<script>
+/* ============================ CORE HELPERS ============================ */
 
-<!-- Left panel for API Studio -->
-<section id="apiLeftCard" class="card hidden">
-  <div class="head">Paste cURL</div>
-  <div class="body">
-    <textarea id="curlBox" class="ed mono" placeholder="Paste cURL here (from Postman/Insomnia)..."></textarea>
-    <div class="row" style="align-items:center; gap:12px">
-      <label class="small">Framework</label>
-      <select id="apiFramework">
-        <option value="restassured">RestAssured (Java)</option>
-        <option value="karate">Karate DSL</option>
-      </select>
-      <button id="btnGenAPI" class="btn primary" style="width:auto">Generate API Code</button>
-    </div>
-  </div>
-</section>
-
-
-
-
-function setMode(m){
-  modePOM.classList.remove('active'); 
-  modeAPI.classList.remove('active');
-
-  if(m==='pom'){ 
-    modePOM.classList.add('active'); 
-
-    // Right side
-    pomPanel.classList.remove('hidden'); 
-    apiPanel.classList.add('hidden'); 
-
-    // Left side
-    $('#pomLeftCard').classList.remove('hidden');
-    $('#apiLeftCard').classList.add('hidden');
+// Robust string literal for XPath (handles both ' and ")
+function xpathLiteral(s){
+  s = String(s);
+  if (s.indexOf('"') === -1) return `"${s}"`;
+  if (s.indexOf("'") === -1) return `'${s}'`;
+  // split on " and build concat("...", '"', "...")
+  const parts = s.split('"');
+  const out = [];
+  for (let i = 0; i < parts.length; i++){
+    if (parts[i] !== '') out.push(`"${parts[i].replace(/\\/g,'\\\\')}"`);
+    if (i < parts.length - 1) out.push(`'"'`);
   }
-  else { 
-    modeAPI.classList.add('active'); 
-
-    // Right side
-    pomPanel.classList.add('hidden'); 
-    apiPanel.classList.remove('hidden'); 
-
-    // Left side
-    $('#pomLeftCard').classList.add('hidden');
-    $('#apiLeftCard').classList.remove('hidden');
-  }
+  return `concat(${out.join(',')})`;
 }
 
-
-
-// NEW: Generate API Code directly from pasted cURL
-$('#btnGenAPI').addEventListener('click', ()=>{
-  const curl = $('#curlBox').value.trim();
-  if(!curl){ showToast('No cURL entered'); return; }
-  parseCurl(curl);       // auto-fill method/url/headers/body
-  generateApiCode();     // output RestAssured / Karate
-  showToast('API code generated');
-});
-
-
-
-function generateApiCode(){
-  const method = $('#apiMethod').value;
-  const url = $('#apiUrl').value;
-  let headers = $('#apiHeaders').value;
-  const body = $('#apiBody').value;
-  const framework = $('#apiFramework').value; // restassured | karate
-
-  try { headers = JSON.stringify(JSON.parse(headers), null, 2); } catch(e) {}
-
-  let code = "";
-
-  if(framework === "restassured"){
-    code = `// RestAssured Example
-given()
-  .headers(${headers})
-  .body(${body})
-.when()
-  .${method.toLowerCase()}("${url}")
-.then()
-  .statusCode(200);`;
-  }
-  else if(framework === "karate"){
-    code = `# Karate DSL Example
-Feature: API Test
-  Scenario: ${method} request
-    Given url '${url}'
-    And headers ${headers}
-    And request ${body}
-    When method ${method.toLowerCase()}
-    Then status 200`;
-  }
-
-  $('#apiCode').value = code;
-}
-
-
-
-
-// ✅ API Studio Clear button
-// =========================
-// API Studio Hooks
-// =========================
-document.addEventListener("DOMContentLoaded", ()=>{
-
-  // Paste cURL from clipboard
-  $('#btnPasteCurl')?.addEventListener('click', async ()=>{
-    try{
-      const txt = await navigator.clipboard.readText();
-      if(!txt) return showToast('Clipboard empty');
-      parseCurl(txt); 
-      showToast('Parsed cURL');
-    }catch(e){ 
-      showToast('Clipboard blocked'); 
-    }
-  });
-
-  // Generate API code (from fields already filled)
-  $('#btnGenerateApi')?.addEventListener('click', ()=>{
-    generateApiCode(); 
-    showToast('API code generated');
-  });
-
-  // Copy API code to clipboard
-  $('#btnCopyApiCode')?.addEventListener('click', async ()=>{
-    await navigator.clipboard.writeText($('#apiCode').value||'');
-    showToast('Code copied');
-  });
-
-  // ✅ NEW: Generate API Code directly from pasted cURL
-  $('#btnGenAPI')?.addEventListener('click', ()=>{
-    const curl = $('#curlBox').value.trim();
-    if(!curl){ showToast('No cURL entered'); return; }
-    parseCurl(curl);        // auto-fill method/url/headers/body
-    generateApiCode();      // output RestAssured / Karate
-    showToast('API code generated');
-  });
-
-  // ✅ Clear API Studio fields
-  $('#btnApiClear')?.addEventListener('click', ()=>{
-    $('#curlBox').value = '';
-    $('#apiMethod').value = 'GET';
-    $('#apiUrl').value = '';
-    $('#apiHeaders').value = '{}';
-    $('#apiBody').value = '{}';
-    $('#apiCode').value = '';
-    $('#apiResponse').value = '';
-    showToast('API Studio cleared');
-  });
-
-});
-
-
-function parseCurl(curl){
+// Defensive label fetcher (uses user's bestLabelFor if present)
+function getLabelFor(el){
   try {
-    // 🔥 Step 1: Normalize
-    curl = curl.replace(/\\\s*\n/g, ' ');  // join lines with backslashes
-    curl = curl.replace(/\n+/g, ' ');      // remove plain line breaks
-    curl = curl.trim();
-
-    // 🔥 Step 2: Extract method
-    let method = (curl.match(/-X\s+(GET|POST|PUT|DELETE|PATCH)/i) || [])[1];
-    if(!method){
-      // auto-detect: if data present → assume POST, else GET
-      if(/--data/.test(curl) || /--data-raw/.test(curl) || /--data-binary/.test(curl)){
-        method = 'POST';
-      } else {
-        method = 'GET';
-      }
-    }
-
-    // 🔥 Step 3: Extract URL
-    const url = (curl.match(/curl\s+['"]?([^'"\s]+)/i) || [])[1] || '';
-
-    // 🔥 Step 4: Extract headers
-    const headers = {};
-    const headerRegex = /-H\s+["']?([^:"']+):\s*([^"']+)["']?/gi;
-    let h;
-    while((h = headerRegex.exec(curl)) !== null){
-      headers[h[1]] = h[2];
-    }
-
-    // 🔥 Step 5: Extract body
-    const dataMatch = curl.match(/--data(?:-raw)?\s+['"]([^']+)['"]/i) 
-                   || curl.match(/--data-binary\s+['"]([^']+)['"]/i);
-
-    // 🔥 Step 6: Fill UI fields
-    $('#apiMethod').value = method.toUpperCase();
-    $('#apiUrl').value = url;
-    $('#apiHeaders').value = JSON.stringify(headers, null, 2);
-    $('#apiBody').value = dataMatch ? dataMatch[1] : '{}';
-
-  } catch(e){
-    console.error("parseCurl failed:", e);
-    showToast("Failed to parse cURL");
+    if (typeof bestLabelFor === 'function') return bestLabelFor(el);
+  } catch(e){}
+  // lightweight fallback: look for label[for] or nearest label ancestor text
+  const id = el && el.getAttribute ? el.getAttribute('id') : null;
+  if (id) {
+    const sel = `label[for="${id.replace(/([#.;,[\\]()>+~=:*"\\\\])/g,'\\\\$1')}"]`;
+    const lab = (window.CURRENT_DOC || document).querySelector(sel);
+    if (lab && lab.textContent) return lab.textContent.trim();
   }
+  const parentLabel = el && el.closest ? el.closest('label') : null;
+  if (parentLabel && parentLabel.textContent) return parentLabel.textContent.trim();
+  return null;
 }
 
+/* ============================ SKIP / DEDUPE ============================ */
 
+function isHiddenByInlineStyle(el){
+  const s = (el.getAttribute('style')||'').toLowerCase();
+  return /display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0|pointer-events\s*:\s*none/.test(s);
+}
+function hasUsefulLabel(el){
+  const id = el.id;
+  if (el.getAttribute('aria-label')) return true;
+  if (el.getAttribute('placeholder')) return true;
+  if (el.getAttribute('name')) return true;
+  if (id){
+    const sel = `label[for="${id.replace(/([#.;,[\\]()>+~=:*"\\\\])/g,'\\\\$1')}"]`;
+    if((window.CURRENT_DOC||document).querySelector(sel)) return true;
+  }
+  const t = (el.textContent||'').trim();
+  return t.length > 0;
+}
+function isSFNoise(el){
+  const cls = el.className || '';
+  if(/\bslds-assistive-text\b/.test(cls)) return true;
+  if(/\bslds-hide\b/.test(cls)) return true;
+  if(el.getAttribute('role') === 'presentation') return true;
+  return false;
+}
+function isPegaNoise(el){
+  const ctl = el.getAttribute('data-ctl') || '';
+  if(ctl === 'Tooltip') return true;
+  // decorative icons without semantics/handlers
+  if(ctl === 'Icon' && !el.hasAttribute('role') && !el.onclick) return true;
+  return false;
+}
+function shouldSkip(el){
+  if(!el || el.nodeType !== 1) return true;
+  const tag = el.tagName.toLowerCase();
 
+  // hidden/disabled/read-only
+  if(el.hasAttribute('hidden')) return true;
+  if(el.getAttribute('aria-hidden') === 'true') return true;
+  if(isHiddenByInlineStyle(el)) return true;
+  if(el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') return true;
+  if(el.hasAttribute('readonly')) return true;
+  if(tag === 'input' && (el.getAttribute('type')||'').toLowerCase() === 'hidden') return true;
 
+  // non-interactive anchors
+  if(tag === 'a' && (!el.hasAttribute('href') || el.getAttribute('href') === '#')) return true;
 
-////
+  // framework presentational noise
+  if(isSFNoise(el)) return true;
+  if(isPegaNoise(el)) return true;
 
-function normalizeHeaderKey(key){
-  // Auto-capitalize header keys (Authorization, Content-Type, etc.)
-  return key.split('-')
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join('-');
+  // no label/attr/text signal
+  if(!hasUsefulLabel(el)) return true;
+
+  return false;
 }
 
-function parseCurl(curl){
+// Smart anchor text used in dedupe signature (defensive)
+function getSmartAnchorTextSafe(el){
   try {
-    // 🔥 Step 1: Normalize (join multi-line)
-    curl = curl.replace(/\\\s*\n/g, ' ');   // join lines with backslashes
-    curl = curl.replace(/\n+/g, ' ');       // remove plain line breaks
-    curl = curl.trim();
-
-    // 🔥 Step 2: Detect Method
-    let method = (curl.match(/(?:-X|--request)\s+(GET|POST|PUT|DELETE|PATCH)/i) || [])[1];
-    if(!method){
-      if(/--data/.test(curl) || /--data-raw/.test(curl) || /--data-binary/.test(curl)){
-        method = 'POST';
-      } else {
-        method = 'GET';
-      }
-    }
-
-    // 🔥 Step 3: Detect URL
-    let url = (curl.match(/--url\s+['"]?([^'"\s]+)/i) || [])[1];
-    if(!url){
-      url = (curl.match(/curl\s+['"]?([^'"\s]+)/i) || [])[1] || '';
-    }
-
-    // 🔥 Step 4: Extract Headers
-    const headers = {};
-    const headerRegex = /(?:-H|--header)\s+'([^']+):\s*([^']+)'/gi;
-    let h;
-    while((h = headerRegex.exec(curl)) !== null){
-      const key = normalizeHeaderKey(h[1].trim());
-      const value = h[2].trim();
-      if(headers[key]){
-        headers[key] += "; " + value;   // merge duplicates (like Cookie)
-      } else {
-        headers[key] = value;
-      }
-    }
-
-    // 🔥 Step 5: Pretty-print headers JSON
-    let headersJson = '{}';
-    try {
-      headersJson = JSON.stringify(headers, null, 2);
-    } catch(e){
-      headersJson = '{}';
-    }
-
-    // 🔥 Step 6: Extract Body (pretty-print JSON if possible)
-    let body = '{}';
-    const dataMatch = curl.match(/--data(?:-raw)?\s+['"]([^']+)['"]/i) 
-                   || curl.match(/--data-binary\s+['"]([^']+)['"]/i);
-    if(dataMatch){
-      body = dataMatch[1];
-      try {
-        body = JSON.stringify(JSON.parse(body), null, 2);
-      } catch(e){
-        // Not valid JSON, keep raw
-      }
-    }
-
-    // 🔥 Step 7: Fill UI fields
-    $('#apiMethod').value = method.toUpperCase();
-    $('#apiUrl').value = url;
-    $('#apiHeaders').value = headersJson;
-    $('#apiBody').value = body;
-
-  } catch(e){
-    console.error("parseCurl failed:", e);
-    showToast("Failed to parse cURL");
-  }
+    if (typeof getSmartAnchorText === 'function') return getSmartAnchorText(el) || '';
+  } catch(e){}
+  const l = getLabelFor(el);
+  return l || (el.getAttribute('aria-label') || '').trim();
 }
 
+function collectCandidateElements(doc){
+  const basics = Array.from(doc.querySelectorAll([
+    // core interactables
+    'input:not([type="hidden"])','button','a','select','textarea',
+    // ARIA/button-like
+    '[role="button"]','span[role="button"]',
+    // Framework hooks (SF / Pega / misc)
+    '[data-ctl]','[data-qa-locator]','[data-aura-class]','[data-aura-rendered-by]','[data-key]','[data-id]',
+    // LWC/force custom tags
+    'lightning-input','lightning-button','lightning-combobox','lightning-textarea',
+    'lightning-record-edit-form','lightning-tab','lightning-input-field','lightning-formatted-text',
+    'force-record-view','force-input','force-button','force-lookup','force-list-view'
+  ].join(',')));
 
+  // early skip
+  let filtered = basics.filter(el => !shouldSkip(el));
 
+  // de-duplicate by signature (tag + key attrs + smart anchor)
+  const seen = new Set();
+  filtered = filtered.filter(el=>{
+    const anchor = getSmartAnchorTextSafe(el);
+    const sig = [
+      el.tagName.toLowerCase(),
+      el.id||'',
+      el.getAttribute('name')||'',
+      el.getAttribute('data-qa-locator')||'',
+      el.getAttribute('data-ctl')||'',
+      el.getAttribute('data-key')||'',
+      el.getAttribute('data-id')||'',
+      anchor
+    ].join('|');
+    if(seen.has(sig)) return false;
+    seen.add(sig);
+    return true;
+  });
 
-////()////
-
-function normalizeHeaderKey(key){
-  return key.split('-')
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join('-');
+  return filtered;
 }
 
-function parseCurl(curl){
-  try {
-    // 🔥 Step 1: Normalize (join multi-line)
-    curl = curl.replace(/\\\s*\n/g, ' ');   // join lines with backslashes
-    curl = curl.replace(/\n+/g, ' ');       // remove plain line breaks
-    curl = curl.trim();
+/* ============================ GENERATORS ============================ */
 
-    // 🔥 Step 2: Detect Method
-    let method = (curl.match(/(?:-X|--request)\s+(GET|POST|PUT|DELETE|PATCH)/i) || [])[1];
-    if(!method){
-      if(/--data|--form|-F/.test(curl)){
-        method = 'POST';
-      } else {
-        method = 'GET';
-      }
-    }
+// --- Basic XPath ---
+function genBasicXPath(el){
+  const tag = el.tagName.toLowerCase();
 
-    // 🔥 Step 3: Detect URL
-    let url = (curl.match(/--url\s+['"]?([^'"\s]+)/i) || [])[1];
-    if(!url){
-      url = (curl.match(/curl\s+['"]?([^'"\s]+)/i) || [])[1] || '';
-    }
+  if(el.id) return `//*[@id=${xpathLiteral(el.id)}]`;
+  const name = el.getAttribute('name');
+  if(name) return `//${tag}[@name=${xpathLiteral(name)}]`;
 
-    // 🔥 Step 4: Extract Headers
-    const headers = {};
-    const headerRegex = /(?:-H|--header)\s+'([^']+):\s*([^']+)'/gi;
-    let h;
-    while((h = headerRegex.exec(curl)) !== null){
-      const key = normalizeHeaderKey(h[1].trim());
-      const value = h[2].trim();
-      if(headers[key]){
-        headers[key] += "; " + value;   // merge duplicates (like Cookie)
-      } else {
-        headers[key] = value;
-      }
-    }
+  const label = getLabelFor(el);
+  if(label) return `//${tag}[contains(normalize-space(.), ${xpathLiteral(label.trim())})]`;
 
-    // 🔥 Step 5: Pretty-print headers JSON
-    let headersJson = '{}';
-    try {
-      headersJson = JSON.stringify(headers, null, 2);
-    } catch(e){
-      headersJson = '{}';
-    }
+  const cls = (el.getAttribute('class')||'').trim().split(/\s+/).filter(Boolean)[0];
+  if(cls) return `//${tag}[contains(concat(' ', normalize-space(@class), ' '), ${xpathLiteral(' ' + cls + ' ')})]`;
 
-    // 🔥 Step 6: Detect Body (JSON, urlencoded, form-data)
-    let body = '{}';
-
-    // Case A: --data (JSON or raw)
-    const dataMatch = curl.match(/--data(?:-raw)?\s+['"]([^']+)['"]/i) 
-                   || curl.match(/--data-binary\s+['"]([^']+)['"]/i);
-    if(dataMatch){
-      body = dataMatch[1];
-      try {
-        body = JSON.stringify(JSON.parse(body), null, 2);  // pretty JSON
-      } catch(e){
-        // urlencoded? convert to JSON
-        if(body.includes("=") && body.includes("&")){
-          const params = {};
-          body.split("&").forEach(p=>{
-            const [k,v] = p.split("=");
-            params[k] = decodeURIComponent(v || "");
-          });
-          body = JSON.stringify(params, null, 2);
-        }
-        // else keep as raw string
-      }
-    }
-
-    // Case B: --form / -F (multipart)
-    const formRegex = /(?:--form|-F)\s+'([^=]+)=(@?[^']+)'/gi;
-    let f; 
-    let multipart = [];
-    while((f = formRegex.exec(curl)) !== null){
-      const field = f[1].trim();
-      const value = f[2].trim();
-      if(value.startsWith("@")){
-        multipart.push(`And multipart file ${field} = { read: '${value.substring(1)}' }`);
-      } else {
-        multipart.push(`And multipart field ${field} = '${value}'`);
-      }
-    }
-    if(multipart.length){
-      body = multipart.join("\n    "); // Karate-style multipart
-    }
-
-    // 🔥 Step 7: Fill UI fields
-    $('#apiMethod').value = method.toUpperCase();
-    $('#apiUrl').value = url;
-    $('#apiHeaders').value = headersJson;
-    $('#apiBody').value = body;
-
-  } catch(e){
-    console.error("parseCurl failed:", e);
-    showToast("Failed to parse cURL");
-  }
+  const parent = el.parentElement;
+  if(!parent) return `//${tag}[1]`;
+  const same = Array.from(parent.children).filter(x => x.tagName === el.tagName);
+  const idx = same.indexOf(el) + 1;
+  return `${genBasicXPath(parent)}/${tag}[${idx}]`;
 }
 
+// --- Wildcards ---
+function genWildcardXPath(el){
+  const tag = '*';
+  if(el.id) return `//*[@id=${xpathLiteral(el.id)}]`;
+  const name = el.getAttribute('name');
+  if(name) return `//*[@name=${xpathLiteral(name)}]`;
 
+  const label = getLabelFor(el);
+  if(label) return `//${tag}[contains(normalize-space(.), ${xpathLiteral(label.trim())})]`;
 
+  const cls = (el.getAttribute('class')||'').trim().split(/\s+/).filter(Boolean)[0];
+  if(cls) return `//${tag}[contains(concat(' ', normalize-space(@class), ' '), ${xpathLiteral(' ' + cls + ' ')})]`;
 
-
-//ghahhsj//
-
-
-
-function generateApiCode(){
-  const method = $('#apiMethod').value;
-  const url = $('#apiUrl').value;
-  let headers = $('#apiHeaders').value;
-  let body = $('#apiBody').value;
-  const framework = $('#apiFramework').value; // restassured | karate
-
-  // ✅ Pretty-print headers if valid JSON
-  try { headers = JSON.stringify(JSON.parse(headers), null, 2); } catch(e) {}
-
-  let code = "";
-
-  // -----------------------------
-  // REST ASSURED
-  // -----------------------------
-  if(framework === "restassured"){
-    let rest = `// RestAssured Example
-given()
-  .headers(${headers})`;
-
-    // Body detection
-    try {
-      const json = JSON.parse(body);
-      rest += `
-  .body(${JSON.stringify(json, null, 2)})`;
-    } catch(e){
-      if(body.includes("multipart field") || body.includes("multipart file")){
-        // Multipart handling
-        body.split("\n").forEach(line=>{
-          if(line.includes("multipart field")){
-            const [_, key, value] = line.match(/field (\S+) = '([^']+)'/);
-            rest += `
-  .multiPart("${key}", "${value}")`;
-          }
-          if(line.includes("multipart file")){
-            const [_, key, file] = line.match(/file (\S+) = { read: '([^']+)'/);
-            rest += `
-  .multiPart("${key}", new File("${file}"))`;
-          }
-        });
-      } else if(body.includes("=")){
-        // URL Encoded
-        body.replace(/[\{\}\n"]/g,"").split(",").forEach(pair=>{
-          const [k,v] = pair.split(":").map(s=>s.trim());
-          if(k && v){
-            rest += `
-  .formParam("${k}", "${v}")`;
-          }
-        });
-      }
-    }
-
-    rest += `
-.when()
-  .${method.toLowerCase()}("${url}")
-.then()
-  .statusCode(200);`;
-
-    code = rest;
-  }
-
-  // -----------------------------
-  // KARATE
-  // -----------------------------
-  else if(framework === "karate"){
-    let karate = `# Karate DSL Example
-Feature: API Test
-  Scenario: ${method} request
-    Given url '${url}'
-    And headers ${headers}`;
-
-    try {
-      const json = JSON.parse(body);
-      karate += `
-    And request ${JSON.stringify(json, null, 2)}`;
-    } catch(e){
-      if(body.includes("multipart field") || body.includes("multipart file")){
-        // Karate multipart (already formatted by parseCurl)
-        karate += `
-    ${body}`;
-      } else if(body.includes("=")){
-        // Karate form-urlencoded
-        karate += `
-    And form fields ${body}`;
-      }
-    }
-
-    karate += `
-    When method ${method.toLowerCase()}
-    Then status 200`;
-
-    code = karate;
-  }
-
-  $('#apiCode').value = code;
+  return genBasicXPath(el);
 }
 
+// --- Axes (label[for], aria-labelledby, headings/legend) ---
+function genAxesXPath(el){
+  const tag = el.tagName.toLowerCase();
+  const id = el.getAttribute('id');
 
+  // explicit label[for]
+  if (id) return `//label[@for=${xpathLiteral(id)}]/following::${tag}[1]`;
 
+  // aria-labelledby
+  const al = el.getAttribute('aria-labelledby');
+  if (al) return `//*[@id=${xpathLiteral(al.split(/\s+/)[0])}]/following::${tag}[1]`;
 
-<!-- ===================== -->
-<!-- API Studio Sidebar -->
-<!-- ===================== -->
-<div class="section">API Studio</div>
+  // text label fallback
+  const label = getLabelFor(el);
+  if (label) return `//label[contains(normalize-space(.), ${xpathLiteral(label.trim())})]/following::${tag}[1]`;
 
-<!-- Paste cURL -->
-<button id="btnPasteCurlText" class="btn">Paste cURL</button>
+  // heading/legend anchor OR basic
+  return `((//legend|//h1|//h2|//h3|//h4|//h5|//h6)[contains(normalize-space(.), ${xpathLiteral((label||'').trim())})]/following::${tag}[1]) | (${genBasicXPath(el)})`;
+}
 
-<!-- Open cURL File -->
-<input type="file" id="openCurlFile" accept=".txt,.curl" style="margin-top:10px;" />
+// --- Function-based (placeholder/title/alt) ---
+function genFunctionXPath(el){
+  const tag = el.tagName.toLowerCase();
+  if(el.placeholder && el.placeholder.trim()) return `//${tag}[contains(@placeholder, ${xpathLiteral(el.placeholder)})]`;
+  if(el.title && el.title.trim()) return `//${tag}[contains(@title, ${xpathLiteral(el.title)})]`;
+  if(el.alt && el.alt.trim()) return `//${tag}[contains(@alt, ${xpathLiteral(el.alt)})]`;
+  return genBasicXPath(el);
+}
 
-<!-- Framework Selector -->
-<label style="margin-top:10px; display:block;">Framework</label>
-<select id="apiFramework" class="ed">
-  <option value="restassured">RestAssured (Java)</option>
-  <option value="karate">Karate DSL</option>
-</select>
+/* -------- Salesforce (generic + LWC + Aura) -------- */
 
-<!-- Generate & Download -->
-<button id="btnGenAPI" class="btn primary" style="margin-top:10px;">Generate API Code</button>
-<button id="btnApiDownload" class="btn" style="margin-top:10px;">Download API File</button>
+function genSalesforceXPath(el){
+  const tag = el.tagName.toLowerCase();
+  if (el.getAttribute('data-qa-locator'))
+    return `//${tag}[@data-qa-locator=${xpathLiteral(el.getAttribute('data-qa-locator'))}]`;
+  if (el.getAttribute('data-key'))
+    return `//${tag}[@data-key=${xpathLiteral(el.getAttribute('data-key'))}]`;
+  if (el.getAttribute('title'))
+    return `//${tag}[@title=${xpathLiteral(el.getAttribute('title'))}]`;
+  if (el.getAttribute('data-aura-rendered-by'))
+    return `//${tag}[@data-aura-rendered-by=${xpathLiteral(el.getAttribute('data-aura-rendered-by'))}]`;
+  return genBasicXPath(el);
+}
 
-<!-- Clear -->
-<button id="btnApiClear" class="btn danger" style="margin-top:10px;">Clear</button>
+function genSalesforceLWCXPath(el){
+  const tag = el.tagName.toLowerCase();
+  if (el.getAttribute('data-id'))
+    return `//${tag}[@data-id=${xpathLiteral(el.getAttribute('data-id'))}]`;
+  if (el.getAttribute('data-field'))
+    return `//${tag}[@data-field=${xpathLiteral(el.getAttribute('data-field'))}]`;
 
+  // on lightning-* wrapper, prefer inner native control if present
+  if (/^lightning-/.test(tag)){
+    return `(//${tag}[@data-id or @data-field or @data-key or @title or @data-qa-locator])[1]` +
+           `| ancestor-or-self::${tag}//input | ancestor-or-self::${tag}//button`;
+  }
+  return genSalesforceXPath(el);
+}
 
-//uog
+function genSalesforceAuraXPath(el){
+  const tag = el.tagName.toLowerCase();
+  if (el.getAttribute('data-aura-class'))
+    return `//${tag}[@data-aura-class=${xpathLiteral(el.getAttribute('data-aura-class'))}]`;
+  if (el.getAttribute('data-aura-rendered-by'))
+    return `//${tag}[@data-aura-rendered-by=${xpathLiteral(el.getAttribute('data-aura-rendered-by'))}]`;
+  return genSalesforceXPath(el);
+}
 
-<!-- ===================== -->
-<!-- Workspace for POM -->
-<!-- ===================== -->
-<div id="pomWorkspace">
-  <div class="section">Workspace</div>
-  <button id="btnPaste" class="btn">Paste HTML</button>
-  <button id="btnOpenFile" class="btn">Open .html file</button>
-</div>
+/* -------- Pega -------- */
 
-<!-- ===================== -->
-<!-- Workspace for API -->
-<!-- ===================== -->
-<div id="apiWorkspace" style="display:none;">
-  <div class="section">Workspace</div>
-  <button id="btnPasteCurlText" class="btn">Paste cURL</button>
-  <input type="file" id="openCurlFile" accept=".txt,.curl" style="margin-top:10px;" />
-</div>
+function genPegaXPath(el){
+  const tag = el.tagName.toLowerCase();
+  if (el.getAttribute('data-test-id'))
+    return `//${tag}[@data-test-id=${xpathLiteral(el.getAttribute('data-test-id'))}]`;
+  if (el.getAttribute('data-node-id'))
+    return `//${tag}[@data-node-id=${xpathLiteral(el.getAttribute('data-node-id'))}]`;
+  if (el.getAttribute('data-ctl'))
+    return `//${tag}[@data-ctl=${xpathLiteral(el.getAttribute('data-ctl'))}]`;
+  if (el.getAttribute('role') === 'button')
+    return `//${tag}[@role='button']`;
+  return genBasicXPath(el);
+}
 
+/* ============================ CHOOSER ============================ */
 
+function firstNonEmpty(){ // utility
+  for (let i=0; i<arguments.length; i++){
+    const v = arguments[i];
+    if (typeof v === 'string' && v.trim()) return v;
+  }
+  return null;
+}
 
+// Best order tuned for reliability
+function bestXPath(el){
+  const lwc = genSalesforceLWCXPath(el);
+  const aura = genSalesforceAuraXPath(el);
+  const sfg = genSalesforceXPath(el);
+  const pega = genPegaXPath(el);
+  const axes = genAxesXPath(el);
+  const fnc  = genFunctionXPath(el);
+  const wild = genWildcardXPath(el);
+  const basic= genBasicXPath(el);
+  return firstNonEmpty(lwc, aura, sfg, pega, axes, fnc, wild, basic);
+}
 
-<!-- POM Sidebar -->
-<div id="pomSidebar">
-  <div class="section">POM & Steps</div>
-  <!-- your POM buttons here -->
-</div>
+/* ============================ MAIN: EXTRACT ============================ */
 
-<!-- API Sidebar -->
-<div id="apiSidebar" style="display:none;">
-  <div class="section">API Studio</div>
-  <label>Framework</label>
-  <select id="apiFramework" class="ed">
-    <option value="restassured">RestAssured (Java)</option>
-    <option value="karate">Karate DSL</option>
-  </select>
-  <button id="btnGenAPI" class="btn primary">Generate API Code</button>
-  <button id="btnApiDownload" class="btn">Download API File</button>
-  <button id="btnApiClear" class="btn danger">Clear</button>
-</div>
+function extractAllLocators(){
+  const DOC = (typeof CURRENT_DOC !== 'undefined' && CURRENT_DOC) ? CURRENT_DOC : document;
 
+  // 1) collect candidates
+  let elements = collectCandidateElements(DOC);
 
+  // 2) safety skip (double-check)
+  elements = elements.filter(el => !shouldSkip(el));
 
-// POM Studio tab clicked
-$('#tabPom')?.addEventListener('click', ()=>{
-  // Workspace
-  $('#pomWorkspace').style.display = 'block';
-  $('#apiWorkspace').style.display = 'none';
-  // Sidebars
-  $('#pomSidebar').style.display = 'block';
-  $('#apiSidebar').style.display = 'none';
-});
+  const results = [];
 
-// API Studio tab clicked
-$('#tabApi')?.addEventListener('click', ()=>{
-  // Workspace
-  $('#pomWorkspace').style.display = 'none';
-  $('#apiWorkspace').style.display = 'block';
-  // Sidebars
-  $('#pomSidebar').style.display = 'none';
-  $('#apiSidebar').style.display = 'block';
-});
+  // 3) build entries
+  for(const el of elements){
+    const attrs = {
+      id: el.id || null,
+      name: el.getAttribute('name') || null,
+      'data-qa-locator': el.getAttribute('data-qa-locator') || null,
+      'data-ctl': el.getAttribute('data-ctl') || null,
+      'data-aura-class': el.getAttribute('data-aura-class') || null,
+      'data-aura-rendered-by': el.getAttribute('data-aura-rendered-by') || null,
+      'data-key': el.getAttribute('data-key') || null,
+      'data-id': el.getAttribute('data-id') || null,
+      role: el.getAttribute('role') || null,
+      placeholder: el.getAttribute('placeholder') || null,
+      type: el.getAttribute('type') || null
+    };
 
+    const xpaths = {
+      basic:       genBasicXPath(el),
+      wildcards:   genWildcardXPath(el),
+      axes:        genAxesXPath(el),
+      functions:   genFunctionXPath(el),
+      sf:          genSalesforceXPath(el),
+      sflwc:       genSalesforceLWCXPath(el),
+      sfaura:      genSalesforceAuraXPath(el),
+      pega:        genPegaXPath(el)
+    };
 
+    const css = (typeof generateCssSelector === 'function') ? generateCssSelector(el) : null;
+    const playwright = (typeof generatePlaywrightSelectors === 'function') ? generatePlaywrightSelectors(el) : null;
+    const anchors = getSmartAnchorTextSafe(el);
+    const best = bestXPath(el);
 
+    results.push({
+      element: el,
+      tag: el.tagName.toLowerCase(),
+      attrs,
+      anchors,
+      xpaths,
+      css,
+      playwright,
+      best
+    });
+  }
 
+  // 4) post-filter + de-dup
+  const seen = new Set();
+  const deduped = [];
+  for(const r of results){
+    if(!r.element || shouldSkip(r.element)) continue;
+    const sig = [
+      r.tag,
+      r.attrs.id || '',
+      r.attrs.name || '',
+      r.attrs['data-qa-locator'] || '',
+      r.attrs['data-ctl'] || '',
+      r.attrs['data-key'] || '',
+      r.attrs['data-id'] || '',
+      r.anchors || '',
+      r.best || ''
+    ].join('|');
+    if(seen.has(sig)) continue;
+    seen.add(sig);
+    deduped.push(r);
+  }
 
-
-
-
-
-
-
-
+  // 5) render or return
+  if(typeof renderLocatorList === 'function'){
+    renderLocatorList(deduped);
+  }else{
+    console.table(deduped.map(d => ({
+      tag: d.tag, id: d.attrs.id, name: d.attrs.name, best: d.best
+    })));
+  }
+  return deduped;
+}
+</script>
