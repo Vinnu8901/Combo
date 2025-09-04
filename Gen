@@ -91,6 +91,43 @@ function renderPreview(){
   CURRENT_HTML = html;
   // inject light background so content is readable
   const LIGHT_INJECT = `<style>html,body{background:#fff !important;color:#0f172a !important} *{color-scheme:light !important}</style>`;
+
+
+
+// --- sanitize HTML to avoid file:// and protocol-relative resolution issues ---
+function sanitizeForPreview(html){
+  if(!html) return html;
+
+  // 1) convert protocol-relative URLs (//host/path) -> https://host/path
+  html = html.replace(/(href|src)=["']\/\/([^"'\s>]+)["']/gi, (m, attr, host) => {
+    return `${attr}="https://${host}"`;
+  });
+
+  // 2) remove file: references entirely (these will fail when opened locally)
+  html = html.replace(/(href|src)=["']file:[^"']*["']/gi, '');
+
+  // 3) optionally remove external script tags with src (avoid CSP/load errors)
+  //    keep inline scripts if you want, but external network scripts often fail in srcdoc/data URI
+  html = html.replace(/<script\b[^>]*\bsrc=['"][^'"]+['"][^>]*>\s*<\/script>/gi, '');
+
+  // 4) optionally remove <link rel="preload"> or other problematic tags (small guard)
+  html = html.replace(/<link\b[^>]*rel=["']preload["'][^>]*>/gi, '');
+
+  // 5) If many links are to same host, optionally add a base tag to make relative links resolve to https host
+  //    Detect host of first absolute url and add <base> (safe fallback)
+  const m = html.match(/https?:\/\/([^"'\s>]+?)\//i);
+  if(m && html.indexOf('<base') === -1){
+    const host = m[1];
+    const baseTag = `<base href="https://${host}/">`;
+    html = html.replace(/<head\b[^>]*>/i, (h) => h + '\n' + baseTag);
+  }
+
+  return html;
+}
+
+
+
+
   preview.srcdoc = `<!doctype html><meta charset="utf-8">${LIGHT_INJECT}${html}`;
 
   // Build parser DOM for extraction tasks (we don't execute scripts)
