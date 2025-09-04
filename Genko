@@ -1,0 +1,127 @@
+<body>
+  <div class="app">
+    <!-- ===================== -->
+    <!-- Tabs -->
+    <!-- ===================== -->
+    <div class="tabs">
+      <button id="tabPom" class="tab active">POM Studio</button>
+      <button id="tabApi" class="tab">API Studio</button>
+    </div>
+
+    <!-- ===================== -->
+    <!-- Sidebar -->
+    <!-- ===================== -->
+    <div class="side">
+      <div class="brand"><span class="beacon"></span>Offline XPath Studio</div>
+
+      <!-- ===================== -->
+      <!-- Workspace for POM -->
+      <!-- ===================== -->
+      <div id="pomWorkspace">
+        <div class="section">Workspace</div>
+        <button id="btnPaste" class="btn">Paste HTML</button>
+        <button id="btnOpenFile" class="btn">Open .html file</button>
+      </div>
+
+      <!-- ===================== -->
+      <!-- Workspace for API -->
+      <!-- ===================== -->
+      <div id="apiWorkspace" style="display:none;">
+        <div class="section">Workspace</div>
+        <button id="btnPasteCurlText" class="btn">Paste cURL</button>
+        <input type="file" id="openCurlFile" accept=".txt,.curl" style="margin-top:10px;" />
+      </div>
+
+      <!-- ===================== -->
+      <!-- POM Sidebar -->
+      <!-- ===================== -->
+      <div id="pomSidebar">
+        <div class="section">POM & Steps</div>
+        <div class="switch">
+          <div class="sw active" data-fw="selenium">Selenium</div>
+          <div class="sw" data-fw="playwright">Playwright</div>
+        </div>
+        <div class="switch">
+          <div class="sw active" data-runner="testng">Maven + TestNG</div>
+          <div class="sw" data-runner="cucumber">Maven + Cucumber</div>
+        </div>
+        <div class="switch">
+          <div class="sw active" data-lang="java">Java</div>
+          <div class="sw" data-lang="javascript">JS</div>
+          <div class="sw" data-lang="python">Python</div>
+          <div class="sw" data-lang="typescript">TS</div>
+        </div>
+        <input id="pageClassName" type="text" placeholder="Enter Page class name." />
+        <button id="btnGenPOM" class="btn primary">Generate POM + Steps</button>
+        <button id="btnDownloadPOM" class="btn">Download POM file</button>
+        <button id="btnDownloadSteps" class="btn">Download Steps file</button>
+        <button id="btnDownloadZip" class="btn">Download ZIP (All)</button>
+      </div>
+
+      <!-- ===================== -->
+      <!-- API Sidebar -->
+      <!-- ===================== -->
+      <div id="apiSidebar" style="display:none;">
+        <div class="section">API Studio</div>
+        <label>Framework</label>
+        <select id="apiFramework" class="ed">
+          <option value="restassured">RestAssured (Java)</option>
+          <option value="karate">Karate DSL</option>
+        </select>
+        <button id="btnGenAPI" class="btn primary" style="margin-top:10px;">Generate API Code</button>
+        <button id="btnApiDownload" class="btn" style="margin-top:10px;">Download API File</button>
+        <button id="btnApiClear" class="btn danger" style="margin-top:10px;">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== -->
+  <!-- Toggle JS -->
+  <!-- ===================== -->
+  <script>
+    const tabPom = document.getElementById("tabPom");
+    const tabApi = document.getElementById("tabApi");
+
+    // POM Studio tab clicked
+    tabPom.addEventListener("click", ()=>{
+      tabPom.classList.add("active");
+      tabApi.classList.remove("active");
+      document.getElementById("pomWorkspace").style.display = "block";
+      document.getElementById("pomSidebar").style.display = "block";
+      document.getElementById("apiWorkspace").style.display = "none";
+      document.getElementById("apiSidebar").style.display = "none";
+    });
+
+    // API Studio tab clicked
+    tabApi.addEventListener("click", ()=>{
+      tabApi.classList.add("active");
+      tabPom.classList.remove("active");
+      document.getElementById("pomWorkspace").style.display = "none";
+      document.getElementById("pomSidebar").style.display = "none";
+      document.getElementById("apiWorkspace").style.display = "block";
+      document.getElementById("apiSidebar").style.display = "block";
+    });
+  </script>
+
+  <!-- ===================== -->
+  <!-- Tab CSS (optional) -->
+  <!-- ===================== -->
+  <style>
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .tab {
+      padding: 6px 12px;
+      background: #333;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    .tab.active {
+      background: #6200ee;
+    }
+  </style>
+</body>
