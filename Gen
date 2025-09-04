@@ -1,209 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Offline XPath Locator & POM + API Studio</title>
-<style>
-  :root{
-    --bg:#0f1217; --panel:#151a21; --panel2:#171e27; --chip:#202734;
-    --txt:#e9eef5; --dim:#9db0c5; --brd:#273243;
-    --accent:#7c5cff; --ok:#19c37d; --warn:#ffbf47; --bad:#ff4d4f;
-    --ed-bg:#fbfcfe; --ed-brd:#dfe6ee; --ed-txt:#0f172a;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}
-  .app{display:grid;grid-template-columns:280px 1fr;height:100%}
-  /* Sidebar */
-  .side{background:linear-gradient(180deg,#0f1217 0,#0f1217 60%,#0b0e13 100%);border-right:1px solid var(--brd);padding:18px 16px;overflow:auto}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:800;margin-bottom:14px}
-  .beacon{width:10px;height:10px;border-radius:50%;background:linear-gradient(180deg,var(--accent),#563bff);box-shadow:0 0 10px var(--accent)}
-  .section{margin:16px 0 8px;color:var(--dim);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
-  .btn{width:100%;text-align:left;cursor:pointer;background:var(--panel);border:1px solid var(--brd);border-radius:10px;padding:10px 12px;color:var(--txt);font-weight:600;margin-bottom:8px;transition:.15s}
-  .btn:hover{background:var(--panel2);transform:translateY(-1px)}
-  .btn.primary{background:linear-gradient(180deg,var(--accent),#6047ff);border-color:#5b49f2}
-  .btn.danger{background:linear-gradient(180deg,#ff4d4f,#e13b3e);border-color:#e13b3e}
-  .pill{display:flex;gap:8px;align-items:center;background:var(--chip);border:1px solid var(--brd);border-radius:999px;padding:8px 10px;width:max-content;color:var(--dim);font-size:12px}
-  .switch{display:flex;gap:8px}
-  .switch .sw{padding:8px 12px;border:1px solid var(--brd);border-radius:10px;background:var(--panel);cursor:pointer}
-  .sw.active{outline:2px solid rgba(124,92,255,.35)}
-  /* Main */
-  .main{display:grid;grid-template-rows:auto 1fr auto}
-  .toolbar{display:flex;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--brd);background:var(--panel);position:sticky;top:0;z-index:5}
-  .toolbar .title{font-weight:800}
-  .hint{color:var(--dim);font-size:12px;margin-left:auto}
-  .mode-chips{display:flex;gap:8px}
-  .mode-chip{padding:6px 10px;border-radius:8px;background:#0f1419;border:1px solid var(--brd);cursor:pointer;color:var(--dim);font-weight:700}
-  .mode-chip.active{background:linear-gradient(90deg,var(--accent),#5a48f0);color:#fff;box-shadow:0 6px 18px rgba(90,72,240,.12)}
-  .workspace{display:grid;grid-template-columns:48% 52%;gap:14px;padding:14px;overflow:auto}
-  .card{background:var(--panel);border:1px solid var(--brd);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-  .card .head{background:var(--panel2);padding:12px 14px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:10px;font-weight:700}
-  .card .body{padding:12px;display:flex;flex-direction:column;gap:10px;min-height:140px}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  select,input[type="text"]{background:var(--panel2);border:1px solid var(--brd);border-radius:10px;color:var(--txt);padding:8px 10px}
-  textarea.ed{background:var(--ed-bg);border:1px solid var(--ed-brd);border-radius:12px;color:var(--ed-txt);padding:10px;min-height:130px;font-family:ui-monospace,Menlo,Consolas,monospace}
-  iframe#preview{width:100%;height:360px;background:#fff;border:none;border-radius:8px}
-  .drop{display:flex;justify-content:center;align-items:center;height:56px;border:2px dashed #3a475a;border-radius:12px;color:var(--dim)}
-  .chip-tabs{display:flex;gap:8px;flex-wrap:wrap;background:var(--panel);border-bottom:1px solid var(--brd);padding:8px 12px}
-  .chip{padding:8px 12px;border:1px solid var(--brd);border-radius:999px;background:#1a2230;color:#b8c6d9;font-size:12px;cursor:pointer}
-  .chip.active{color:#fff;border-color:var(--accent);box-shadow:0 0 0 2px rgba(124,92,255,.25) inset}
-  .list{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto;background:var(--ed-bg);border:1px solid var(--ed-brd);border-radius:12px;padding:8px}
-  .loc-row{background:#fff;border:1px solid #e6ecf5;border-radius:8px;padding:8px 10px;color:#0f172a;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .loc-row:hover{background:#f5f8ff}
-  .badge{font-size:11px;background:#eef2ff;border:1px solid #d8e1ff;border-radius:999px;padding:2px 8px;margin-right:8px;color:#1f2b46}
-  .footer{display:flex;gap:10px;align-items:center;padding:12px 16px;border-top:1px solid var(--brd);background:var(--panel)}
-  .toast{position:fixed;bottom:16px;right:16px;background:#131a24;border:1px solid #2a3648;color:#cfe3ff;padding:10px 12px;border-radius:10px;opacity:0;transform:translateY(8px);transition:.15s}
-  .toast.show{opacity:1;transform:translateY(0)}
-  .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
-  .small{font-size:12px;color:var(--dim)}
-  .hidden{display:none}
-  @media (max-width:980px){.workspace{grid-template-columns:1fr}} 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-</style>
-</head>
-<body>
-<div class="app">
-  <!-- Sidebar -->
-  <aside class="side">
-    <div class="brand"><span class="beacon"></span> Offline XPath Studio</div>
-
-    <div class="section">Workspace</div>
-    <button id="btnPaste" class="btn">Paste HTML</button>
-    <button id="btnOpenFile" class="btn">Open .html file</button>
-    <div class="pill">Drag & drop file into preview</div>
-    <button id="btnClear" class="btn danger">Clear</button>
-    <button id="btnExport" class="btn">Export (locators + checks)</button>
-
-    <div class="section">Locator Panels</div>
-    <button class="btn" data-panel="basic">Basic</button>
-    <button class="btn" data-panel="wildcards">Wildcards</button>
-    <button class="btn" data-panel="axes">Axes</button>
-    <button class="btn" data-panel="functions">Functions & Relative</button>
-    <button class="btn" data-panel="sf">Salesforce / LWC / PEGA</button>
-    <!-- NEW: Pega-specific panel button -->
-    <button class="btn" data-panel="pega">Pega</button>
-
-    <div class="section">POM & Steps</div>
-    <div class="switch">
-      <div class="sw active" data-fw="selenium">Selenium</div>
-      <div class="sw" data-fw="playwright">Playwright</div>
-    </div>
-    <div style="height:8px"></div>
-    <div class="switch">
-      <div class="sw active" data-runner="testng">Maven + TestNG</div>
-      <div class="sw" data-runner="cucumber">Maven + Cucumber</div>
-    </div>
-    <div style="height:8px"></div>
-    <div class="switch">
-      <div class="sw active" data-lang="java">Java</div>
-      <div class="sw" data-lang="javascript">JavaScript</div>
-      <div class="sw" data-lang="python">Python</div>
-      <div class="sw" data-lang="typescript">TypeScript</div>
-    </div>
-    <button id="btnGenPOM" class="btn primary" style="margin-top:10px">Generate POM + Steps</button>
-    <button id="btnDownloadPOM" class="btn">Download POM file</button>
-    <button id="btnDownloadSteps" class="btn">Download Steps file</button>
-    <button id="btnZipAll" class="btn">Download ZIP (All)</button>
-  </aside>
-
-  <!-- Main -->
-  <main class="main">
-    <div class="toolbar">
-      <div class="title">1) Paste/Open HTML → 2) Pick a locator panel → 3) Copy rows → 4) Generate POM + Steps</div>
-      <div class="mode-chips">
-        <div id="modePOM" class="mode-chip active">POM Studio</div>
-        <div id="modeAPI" class="mode-chip">API Studio</div>
-      </div>
-      <div class="hint">Row click = copy • Priority: name → label → placeholder</div>
-    </div>
-
-    <div class="workspace">
-      <!-- Left -->
-      <section id="leftCard" class="card">
-        <div class="head" id="leftHead">Paste HTML</div>
-        <div class="body" id="leftBody">
-          <textarea id="pasteBox" class="ed" placeholder="Paste full page HTML here (scripts optional). Then click 'Render Preview'."></textarea>
-          <div class="row">
-            <button id="btnRender" class="btn primary" style="width:auto">Render Preview</button>
-            <div class="pill mono">shadow DOM supported at runtime</div>
-          </div>
-          <div class="head" style="margin:6px -12px 0;border-radius:10px">Preview</div>
-          <div class="drop" id="dropZone">Drop .html here</div>
-          <iframe id="preview" sandbox="allow-same-origin allow-forms allow-scripts"></iframe>
-        </div>
-      </section>
-
-      <!-- Right -->
-      <section id="rightCard" class="card">
-        <div class="head">Locators & Code</div>
-        <div class="body" id="rightBody">
-          <div id="pomPanel">
-            <div class="chip-tabs">
-              <div class="chip active" data-paneltab="basic">Basic</div>
-              <div class="chip" data-paneltab="wildcards">Wildcards</div>
-              <div class="chip" data-paneltab="axes">Axes</div>
-              <div class="chip" data-paneltab="functions">Functions</div>
-              <div class="chip" data-paneltab="sf">Salesforce</div>
-              <!-- NEW: Pega tab -->
-              <div class="chip" data-paneltab="pega">Pega</div>
-            </div>
-            <div id="locList" class="list"></div>
-
-            <div class="head" style="margin:8px -12px 0;border-radius:10px">Output</div>
-            <textarea id="output" class="ed mono" placeholder="POM / Steps / Export text will appear here…"></textarea>
-          </div>
-
-          <div id="apiPanel" class="hidden">
-            <div class="row" style="align-items:flex-end">
-              <div style="flex:1">
-                <label class="small">Method</label>
-                <select id="apiMethod"><option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option></select>
-              </div>
-              <div style="flex:3">
-                <label class="small">Endpoint</label>
-                <input id="apiUrl" type="text" placeholder="https://api.example.com/..."/>
-              </div>
-            </div>
-
-            <div style="display:flex;gap:10px">
-              <div style="flex:1">
-                <label class="small">Headers (JSON)</label>
-                <textarea id="apiHeaders" class="ed" style="min-height:80px">{ "Content-Type":"application/json" }</textarea>
-              </div>
-              <div style="flex:1">
-                <label class="small">Body (JSON)</label>
-                <textarea id="apiBody" class="ed" style="min-height:80px">{}</textarea>
-              </div>
-            </div>
-
-            <div class="row">
-              <button id="btnGenerateApi" class="btn primary">Generate Code</button>
-              <button id="btnPasteCurl" class="btn">Paste cURL → Parse</button>
-              <button id="btnCopyApiCode" class="btn">Copy Code</button>
-            </div>
-
-            <div class="head" style="margin:8px -12px 0;border-radius:10px">Generated API Code</div>
-            <textarea id="apiCode" class="ed mono" placeholder="RestAssured / Playwright API code will appear here..."></textarea>
-
-            <div class="head" style="margin:8px -12px 0;border-radius:10px">Response / Paste here</div>
-            <textarea id="apiResponse" class="ed mono" placeholder="Paste response JSON here to visualize or to include in tests..."></textarea>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <div class="footer">
-      <div class="pill">Copy any locator by clicking its row</div>
-      <div class="pill">Export includes isVisible / isClickable / isEnabled / isDisabled with waits</div>
-    </div>
-  </main>
-</div>
-
-<input id="hiddenFile" type="file" accept=".html,.htm,.xhtml,.txt" hidden/>
-<div id="toast" class="toast">Copied ✔</div>
-
 <script>
+/* =========================
+   Full replacement script
+   (drop-in for your AdhyanXpath.html)
+========================= */
+
 /* =========================
    Helpers & State
 ========================= */
@@ -213,636 +13,625 @@ const preview = $('#preview');
 const locList = $('#locList');
 const output = $('#output');
 const pasteBox = $('#pasteBox');
-const toast = $('#toast');
 const hiddenFile = $('#hiddenFile');
+const toast = $('#toast');
+const leftHead = $('#leftHead');
 
 let CURRENT_HTML = '';
-let CURRENT_DOC = null; // DOM parsed from paste/open
-let CURRENT_LOCATORS = []; // [{type,text,xpaths:{basic,wildcards,axes,functions,sf,pega}, playwright, css, id}]
+let CURRENT_DOC = null;
+let CURRENT_LOCATORS = []; // array of locator objects
+let SELECTED_IDS = new Set();
 let POM_CACHE = { pom:'', steps:'' };
+let ACTIVE_PANEL = 'basic'; // which tab's xpath to pick for POM
 
 /* =========================
-   UI: Mode switching
+   UI helpers & mode switching
 ========================= */
 const modePOM = $('#modePOM');
 const modeAPI = $('#modeAPI');
-const pomPanel = $('#pomPanel');
-const apiPanel = $('#apiPanel');
-const leftHead = $('#leftHead');
-
-modePOM.addEventListener('click',()=>setMode('pom'));
-modeAPI.addEventListener('click',()=>setMode('api'));
+modePOM?.addEventListener('click', ()=> setMode('pom'));
+modeAPI?.addEventListener('click', ()=> setMode('api'));
 function setMode(m){
-  modePOM.classList.remove('active'); modeAPI.classList.remove('active');
-  if(m==='pom'){ modePOM.classList.add('active'); pomPanel.classList.remove('hidden'); apiPanel.classList.add('hidden'); leftHead.textContent='Paste HTML'; }
-  else{ modeAPI.classList.add('active'); pomPanel.classList.add('hidden'); apiPanel.classList.remove('hidden'); leftHead.textContent='API Request / Preview'; }
+  if(m==='pom'){
+    modePOM.classList.add('active'); modeAPI.classList.remove('active');
+    $('#apiPanel').classList.add('hidden');
+    document.querySelectorAll('#pomLeftCard, #leftHead').forEach(p=>p?.classList?.remove('hidden'));
+  } else {
+    modeAPI.classList.add('active'); modePOM.classList.remove('active');
+    $('#apiPanel').classList.remove('hidden');
+    document.querySelectorAll('#pomLeftCard, #leftHead').forEach(p=>p?.classList?.add('hidden'));
+  }
 }
 
-/* =========================
-   UI: Sidebar switches
-========================= */
-$$('.sw').forEach(sw=>{
-  sw.addEventListener('click',()=>{
-    const groupAttr = [...sw.attributes].find(a=>/^data-/.test(a.name)).name;
-    $$(`.sw[${groupAttr}]`).forEach(x=>x.classList.remove('active'));
-    sw.classList.add('active');
-  });
-});
-
-/* =========================
-   Toast
-========================= */
+/* toast */
 function showToast(msg){ toast.textContent = msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1400); }
 
 /* =========================
-   File open / paste / clear
+   File open / paste / clear / drag-drop
 ========================= */
-$('#btnOpenFile').addEventListener('click', ()=> hiddenFile.click());
-hiddenFile.addEventListener('change', e=>{
-  const f=e.target.files[0]; if(!f) return;
-  const reader=new FileReader();
+$('#btnOpenFile')?.addEventListener('click', ()=> hiddenFile.click());
+hiddenFile?.addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
   reader.onload = ev => { pasteBox.value = ev.target.result; renderPreview(); };
   reader.readAsText(f);
 });
-
-$('#btnPaste').addEventListener('click', async ()=>{
+$('#btnPaste')?.addEventListener('click', async ()=>{
   try{
     const txt = await navigator.clipboard.readText();
     if(!txt) return showToast('Clipboard empty');
-    pasteBox.value = txt;
-    renderPreview();
+    pasteBox.value = txt; renderPreview();
   }catch(e){ showToast('Clipboard permission denied'); }
 });
-
-$('#btnClear').addEventListener('click', ()=>{
+$('#btnClear')?.addEventListener('click', ()=>{
   pasteBox.value = '';
   preview.srcdoc = '<body style="font-family:sans-serif"><h3>Preview cleared</h3></body>';
-  CURRENT_HTML = ''; CURRENT_DOC = null; CURRENT_LOCATORS = []; locList.innerHTML = ''; output.value = '';
+  CURRENT_HTML = ''; CURRENT_DOC = null; CURRENT_LOCATORS = []; SELECTED_IDS = new Set();
+  locList.innerHTML = ''; output.value = '';
 });
-
-/* =========================
-   Drag & Drop to preview area
-========================= */
 const dropZone = $('#dropZone');
-['dragenter','dragover'].forEach(ev=>dropZone.addEventListener(ev,e=>{ e.preventDefault(); dropZone.style.borderColor='#5a48f0'; }));
-['dragleave','drop'].forEach(ev=>dropZone.addEventListener(ev,e=>{ e.preventDefault(); dropZone.style.borderColor='#3a475a'; }));
-dropZone.addEventListener('drop', e=>{
-  const f=e.dataTransfer.files?.[0]; if(!f) return;
-  const reader=new FileReader();
-  reader.onload = ev => { pasteBox.value = ev.target.result; renderPreview(); };
-  reader.readAsText(f);
-});
+if(dropZone){
+  ['dragenter','dragover'].forEach(ev=>dropZone.addEventListener(ev,e=>{ e.preventDefault(); dropZone.style.borderColor='#5a48f0'; }));
+  ['dragleave','drop'].forEach(ev=>dropZone.addEventListener(ev,e=>{ e.preventDefault(); dropZone.style.borderColor='#3a475a'; }));
+  dropZone.addEventListener('drop', e=>{
+    const f = e.dataTransfer.files?.[0]; if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ev => { pasteBox.value = ev.target.result; renderPreview(); };
+    reader.readAsText(f);
+  });
+}
 
 /* =========================
-   Render preview
+   Render Preview -> extraction
+   (Action extractor runs automatically)
 ========================= */
-$('#btnRender').addEventListener('click', renderPreview);
-
+$('#btnRender')?.addEventListener('click', renderPreview);
 function renderPreview(){
-  const html = pasteBox.value?.trim() || '<!doctype html><meta charset="utf-8"><body><h3>Paste HTML and click Render</h3></body>';
+  const html = (pasteBox.value||'').trim() || '<!doctype html><meta charset="utf-8"><body><h3>Paste HTML and click Render</h3></body>';
   CURRENT_HTML = html;
-  preview.srcdoc = html;
-  // Build parser DOM for extraction
+  // inject light background so content is readable
+  const LIGHT_INJECT = `<style>html,body{background:#fff !important;color:#0f172a !important} *{color-scheme:light !important}</style>`;
+  preview.srcdoc = `<!doctype html><meta charset="utf-8">${LIGHT_INJECT}${html}`;
+
+  // Build parser DOM for extraction tasks (we don't execute scripts)
   const parser = new DOMParser();
   CURRENT_DOC = parser.parseFromString(html, 'text/html');
-  // Extract locators after render
-  setTimeout(extractAllLocators, 50);
+
+  // Extract
+  setTimeout(()=>{
+    extractAllLocators();
+    // action candidates (automatically run)
+    extractActionCandidates();
+  }, 50);
+
   showToast('Preview rendered');
 }
 
 /* =========================
-   Locator Panels: tab + sidebar sync
+   Tabs: track ACTIVE_PANEL and sync UI
 ========================= */
-$('.chip-tabs').addEventListener('click', e=>{
+leftHead?.addEventListener('click', e=>{
   const chip = e.target.closest('.chip'); if(!chip) return;
-  $$('.chip').forEach(c=>c.classList.remove('active')); chip.classList.add('active');
-  fillLocatorList(chip.dataset.paneltab || 'basic');
+  $$('.chip').forEach(c=>c.classList.remove('active'));
+  chip.classList.add('active');
+  const p = chip.dataset.paneltab || 'basic';
+  ACTIVE_PANEL = p;
+  fillLocatorList(p);
 });
-$$('.side .btn[data-panel]').forEach(b=>b.addEventListener('click',()=>{
+$$('.side .btn[data-panel]').forEach(b=>b.addEventListener('click', ()=>{
+  // also ensure the top chip toggles
   $$('.chip').forEach(c=>c.classList.remove('active'));
   const sel = b.dataset.panel;
   const chip = $(`.chip[data-paneltab="${sel}"]`);
-  if(chip){ chip.classList.add('active'); fillLocatorList(sel); }
+  if(chip) chip.classList.add('active');
+  ACTIVE_PANEL = sel;
+  fillLocatorList(sel);
   showToast(sel+' panel');
 }));
 
 /* =========================
-   Locator Extraction Core
+   Basic label helper + XPath generators
 ========================= */
-function textScore(el){
-  const t = (el.getAttribute('name')||'') + ' ' +
-            (el.getAttribute('aria-label')||'') + ' ' +
-            (el.getAttribute('placeholder')||'') + ' ' +
-            (el.textContent||'');
-  return t.trim().replace(/\s+/g,' ').slice(0,120);
-}
-
-  // ====== helpers ======
-function downloadText(filename, text){
-  const blob = new Blob([text], {type: 'text/plain;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
-}
-
-function slug(s){
-  return (s||'element').toString()
-    .replace(/\s+/g,'_')
-    .replace(/[^A-Za-z0-9_]/g,'')
-    .replace(/^(\d)/,'_$1')
-    .slice(0,60);
-}
-
-function bestXPath(loc){
-  if(!loc || !loc.xpaths) return '';
-  return loc.xpaths.sfsmart || loc.xpaths.pegasmart || loc.xpaths.sf || loc.xpaths.pega ||
-         loc.xpaths.axes || loc.xpaths.functions || loc.xpaths.wildcards || loc.xpaths.basic || '';
-}
-
-function uniqNamesFromLocators(locs){
-  const used = new Set();
-  return locs.map((l,i)=>{
-    let base = slug(l.text || l.tag || `elem_${i+1}`);
-    if(!base) base = `elem_${i+1}`;
-    let name = base, n=2;
-    while(used.has(name)){ name = base + '_' + n++; }
-    used.add(name);
-    return {...l, __name: name};
-  });
-}
-  
-  
 function bestLabelFor(el){
-  // Try: aria-label, label[for], placeholder, innerText
-  const aria = el.getAttribute('aria-label');
-  if(aria) return aria.trim();
-  const id = el.id;
-  if(id){
-    const lab = CURRENT_DOC.querySelector(`label[for="${cssEscape(id)}"]`);
-    if(lab && lab.textContent.trim()) return lab.textContent.trim();
-  }
-  const ph = el.getAttribute('placeholder'); if(ph) return ph.trim();
-  const txt = (el.textContent||'').trim(); if(txt) return txt;
-  return '';
+  const txt = (el.getAttribute?.('aria-label') || el.getAttribute?.('title') || el.getAttribute?.('placeholder') || el.textContent || '').trim();
+  return txt.replace(/\s+/g,' ').slice(0,80);
 }
 
-function cssEscape(s){ return s?.replace(/([#.;,[\]()>+~=:*"\\])/g,'\\$1') || ''; }
-// Anchor text used by "smart" XPaths (previous sibling label text, label[for], section heading, aria/placeholder, or own text)
-function getSmartAnchorText(el){
-  let t = el.previousElementSibling?.textContent?.trim();
-  if(t && t.length >= 2) return t.replace(/\s+/g,' ').slice(0,80);
-
-  const id = el.id;
-  if(id){
-    const lab = CURRENT_DOC.querySelector(`label[for="${cssEscape(id)}"]`);
-    if(lab && lab.textContent.trim()) return lab.textContent.trim().replace(/\s+/g,' ').slice(0,80);
-  }
-
-  const anc = el.closest?.('fieldset,section,form,div,article');
-  if(anc){
-    const head = anc.querySelector('legend,h1,h2,h3,h4,h5,h6');
-    if(head && head.textContent.trim()) return head.textContent.trim().replace(/\s+/g,' ').slice(0,80);
-  }
-
-  const aria = el.getAttribute('aria-label');
-  if(aria && aria.trim()) return aria.trim().replace(/\s+/g,' ').slice(0,80);
-  const ph = el.getAttribute('placeholder');
-  if(ph && ph.trim()) return ph.trim().replace(/\s+/g,' ').slice(0,80);
-
-  const selfTxt = (el.textContent||'').trim();
-  if(selfTxt) return selfTxt.replace(/\s+/g,' ').slice(0,80);
-
-  return '';
-}
-  
 function genBasicXPath(el){
+  const isSVG = (typeof SVGElement!=='undefined') && (el instanceof SVGElement || el.ownerSVGElement!=null);
   const tag = el.tagName.toLowerCase();
+  const tagExpr = isSVG ? `*[local-name()='${tag}']` : tag;
   if(el.id) return `//*[@id="${el.id}"]`;
-  if(el.getAttribute('name')) return `//${tag}[@name="${el.getAttribute('name')}"]`;
+  if(el.getAttribute && el.getAttribute('name')) return `//${tagExpr}[@name="${el.getAttribute('name')}"]`;
   const label = bestLabelFor(el);
-  if(label) return `//${tag}[contains(normalize-space(.),"${label.replace(/"/g,'\\"')}")]`;
-  const cls = (el.getAttribute('class')||'').trim().split(/\s+/).filter(Boolean)[0];
-  if(cls) return `//${tag}[contains(@class,"${cls}")]`;
-  const parent = el.parentElement;
-  if(!parent) return `//${tag}[1]`;
-  const same = Array.from(parent.children).filter(x=>x.tagName===el.tagName);
+  if(label) return `//${tagExpr}[contains(normalize-space(.),"${label.replace(/"/g,'\\"')}")]`;
+  const cls = (el.getAttribute?.('class')||'').trim().split(/\s+/).filter(Boolean)[0];
+  if(cls) return `//${tagExpr}[contains(@class,"${cls}")]`;
+  const parent = el.parentElement || el.parentNode;
+  if(!parent || parent.nodeType!==1) return `//${tagExpr}[1]`;
+  const same = Array.from(parent.children||[]).filter(x=>x.tagName===el.tagName);
   const idx = same.indexOf(el)+1;
-  return `(${genBasicXPath(parent)}/${tag})[${idx}]`;
+  return `(${genBasicXPath(parent)}/${tagExpr})[${idx}]`;
 }
 
 function genWildcardXPath(el){
   const tag=el.tagName.toLowerCase();
   const label = bestLabelFor(el);
-  if(label) return `//${tag}[contains(translate(normalize-space(.),"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz"),"${label.toLowerCase().replace(/"/g,'\\"')}")]`;
-  const ph = el.getAttribute('placeholder');
-  if(ph) return `//${tag}[contains(@placeholder,"${ph.replace(/"/g,'\\"')}")]`;
-  const v = (el.value||'').trim();
-  if(v) return `//${tag}[contains(@value,"${v.replace(/"/g,'\\"')}")]`;
-  return `//${tag}`;
+  if(label) return `//*[contains(normalize-space(.),"${label.replace(/"/g,'\\"')}")]`;
+  const name = el.getAttribute?.('name'); if(name) return `//${tag}[contains(@name,"${name}")]`;
+  const id = el.id; if(id) return `//*[contains(@id,"${id}")]`;
+  const cls = (el.getAttribute('class')||'').trim().split(/\s+/).find(Boolean); if(cls) return `//*[contains(@class,"${cls}")]`;
+  return genBasicXPath(el);
 }
 
 function genAxesXPath(el){
-  const id = el.id;
-  if(id){
-    const lab = CURRENT_DOC.querySelector(`label[for="${cssEscape(id)}"]`);
-    if(lab){
-      const labTxt = lab.textContent.trim().replace(/"/g,'\\"');
-      return `//label[normalize-space()="${labTxt}"]//following::${el.tagName.toLowerCase()}[1]`;
-    }
+  const tag = el.tagName.toLowerCase();
+  const label = bestLabelFor(el);
+  if(label) return `//${tag}[normalize-space(.)="${label.replace(/"/g,'\\"')}"] | //label[normalize-space(.)="${label.replace(/"/g,'\\"')}"]/following::${tag}[1]`;
+  const parent = el.closest?.('[id],[name],[class]') || el.parentElement;
+  if(parent && parent!==el){
+    const pid = parent.id ? `//*[@id="${parent.id}"]` : genBasicXPath(parent);
+    return `${pid}//${tag}[1]`;
   }
-  const h = el.closest?.('fieldset,section,div,form');
-  if(h && h.querySelector('legend,h1,h2,h3,h4,h5,h6')){
-    const head = h.querySelector('legend,h1,h2,h3,h4,h5,h6');
-    const t = head.textContent.trim().replace(/"/g,'\\"');
-    return `//*[self::legend or self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6][normalize-space()="${t}"]//following::${el.tagName.toLowerCase()}[1]`;
-  }
-  const prevTxt = el.previousElementSibling?.textContent?.trim();
-  if(prevTxt) return `//*[normalize-space()="${prevTxt.replace(/"/g,'\\"')}"]/following::${el.tagName.toLowerCase()}[1]`;
   return genBasicXPath(el);
 }
 
 function genFunctionXPath(el){
-  const tag=el.tagName.toLowerCase();
-  const label = bestLabelFor(el);
-  if(label) return `//${tag}[contains(normalize-space(.),"${label.replace(/"/g,'\\"')}") and not(contains(@disabled,"true"))]`;
-  return `//${tag}[normalize-space(@value) or normalize-space(@placeholder)]`;
-}
-
-// SALESFORCE — attribute/tag priority: data-qa-locator > data-aura-* > data-key > data-id > lightning-* / force-* > slds-* class
-function genSalesforceXPath(el){
   const tag = el.tagName.toLowerCase();
-  const cls = el.getAttribute('class') || '';
-
-  if(el.hasAttribute('data-qa-locator'))      return `//*[@data-qa-locator="${el.getAttribute('data-qa-locator')}"]`;
-  if(el.hasAttribute('data-aura-class'))      return `//*[@data-aura-class="${el.getAttribute('data-aura-class')}"]`;
-  if(el.hasAttribute('data-aura-rendered-by'))return `//*[@data-aura-rendered-by="${el.getAttribute('data-aura-rendered-by')}"]`;
-  if(el.hasAttribute('data-key'))             return `//*[@data-key="${el.getAttribute('data-key')}"]`;
-  if(el.hasAttribute('data-id'))              return `//*[@data-id="${el.getAttribute('data-id')}"]`;
-
-  if(tag.startsWith('lightning-'))            return `//${tag}`;
-  if(tag.startsWith('force-'))                return `//${tag}`;
-  if(cls.includes('slds-'))                   return `//*[contains(@class,"slds-")]`;
-
-  // keep your earlier fallbacks
+  const label = bestLabelFor(el);
+  if(label) return `//${tag}[contains(normalize-space(.),"${label.replace(/"/g,'\\"')}")]`;
+  const ph = el.getAttribute?.('placeholder'); if(ph) return `//${tag}[starts-with(@placeholder,"${ph.split(' ')[0]}")]`;
+  const aria = el.getAttribute?.('aria-label'); if(aria) return `//${tag}[normalize-space(@aria-label)="${aria.replace(/"/g,'\\"')}"]`;
   return genBasicXPath(el);
 }
 
-// SALESFORCE — Smart neighbour (anchored to nearby label/heading text) using the same priority
-function genSalesforceSmartXPath(el){
-  const tag = el.tagName.toLowerCase();
-  const anchor = getSmartAnchorText(el);
-  if(!anchor) return '';
-  const A = anchor.replace(/"/g,'\\"');
+/* Small stubs for SF / Pega / CSS / Playwright generators — replace with your specialized ones if present */
+function genSalesforceXPath(el){ try{ return genFunctionXPath(el); }catch(e){ return ''; } }
+function genSalesforceSmartXPath(el){ try{ return genFunctionXPath(el); }catch(e){ return ''; } }
+function genPegaXPath(el){ try{ return genFunctionXPath(el); }catch(e){ return ''; } }
+function genPegaSmartXPath(el){ try{ return genFunctionXPath(el); }catch(e){ return ''; } }
+function genCSS(el){ try{ return (el && el.getAttribute && el.getAttribute('class')) ? `${el.tagName.toLowerCase()}[class*="${el.getAttribute('class').split(' ')[0]}"]` : ''; }catch(e){ return ''; } }
+function genPlaywright(el){ return ''; }
 
-  if(el.hasAttribute('data-qa-locator'))       return `//*[normalize-space()="${A}"]//following::*[@data-qa-locator="${el.getAttribute('data-qa-locator')}"][1]`;
-  if(el.hasAttribute('data-aura-class'))       return `//*[normalize-space()="${A}"]//following::*[@data-aura-class="${el.getAttribute('data-aura-class')}"][1]`;
-  if(el.hasAttribute('data-aura-rendered-by')) return `//*[normalize-space()="${A}"]//following::*[@data-aura-rendered-by="${el.getAttribute('data-aura-rendered-by')}"][1]`;
-  if(el.hasAttribute('data-key'))              return `//*[normalize-space()="${A}"]//following::*[@data-key="${el.getAttribute('data-key')}"][1]`;
-  if(el.hasAttribute('data-id'))               return `//*[normalize-space()="${A}"]//following::*[@data-id="${el.getAttribute('data-id')}"][1]`;
+/* =========================
+   Dynamic patterns for %s (INSERT #1)
+========================= */
+function dynamicPatternsFor(el){
+  const tag  = el.tagName.toLowerCase();
+  const text = (el.getAttribute?.('aria-label') || el.getAttribute?.('title') || el.textContent || '').trim();
+  const ph   = el.getAttribute?.('placeholder') || '';
+  const name = el.getAttribute?.('name') || '';
+  const type = el.getAttribute?.('type') || '';
+  const role = el.getAttribute?.('role') || '';
+  const patterns = [];
 
-  if(tag.startsWith('lightning-') || tag.startsWith('force-')) return `//*[normalize-space()="${A}"]//following::${tag}[1]`;
+  if(text) patterns.push(`//*[contains(normalize-space(.),"${text.replace(/"/g,'\\"')}")]`);
 
-  const cls = el.getAttribute('class') || '';
-  if(cls.includes('slds-'))                    return `//*[normalize-space()="${A}"]//following::*[contains(@class,"slds-")][1]`;
+  if(tag==='button' || role==='button') patterns.push(`//button[contains(normalize-space(.),"%s")]`);
+  if(tag==='a') patterns.push(`//a[contains(normalize-space(.),"%s")]`);
+  if(tag==='input' && (!type || /text|email|search|password|tel|number/.test(type))) patterns.push(`//input[contains(@placeholder,"%s") or contains(@name,"%s")]`);
+  if(tag==='input' && /checkbox/.test(type)) patterns.push(`//input[@type="checkbox" and contains(@name,"%s")]`);
+  if(tag==='input' && /radio/.test(type)) patterns.push(`//input[@type="radio" and contains(@name,"%s")]`);
+  if(tag==='select') patterns.push(`//select[contains(@name,"%s") or contains(@aria-label,"%s")]`);
+  if(tag==='img') patterns.push(`//img[contains(@alt,"%s")]`);
 
-  return '';
+  // common fallbacks
+  patterns.push(`//*[contains(@id,"%s")]`);
+  patterns.push(`//*[@data-test-id="%s" or @data-testid="%s" or @data-id="%s"]`);
+
+  return [...new Set(patterns)];
 }
 
-// PEGA — core attribute priority you listed
-function genPegaXPath(el){
-  const tag = el.tagName.toLowerCase();
-  const attrs = [
-    'data-test-id','data-ctl','data-click','data-hotkey','data-validation','data-required',
-    'data-template','string_type','reserve_space','data-ui-meta','node_name','pyclassname','pyworkpage'
-  ];
-  for(const a of attrs){
-    if(el.hasAttribute(a)) return `//*[@${a}="${el.getAttribute(a)}"]`;
-  }
-  if(el.getAttribute('role') === 'button') return `//${tag}[@role="button"]`;
-  return genBasicXPath(el);
-}
+/* =========================
+   Extract all locators (INSERT #2)
+========================= */
+function extractAllLocators(){
+  if(!CURRENT_DOC){ locList.innerHTML = ''; return; }
+  const doc = CURRENT_DOC;
 
-// PEGA — Smart neighbour
-function genPegaSmartXPath(el){
-  const tag = el.tagName.toLowerCase();
-  const anchor = getSmartAnchorText(el);
-  if(!anchor) return '';
-  const A = anchor.replace(/"/g,'\\"');
+  // collector fallback
+  const basics = Array.from(doc.querySelectorAll(
+    'input,button,a,select,textarea,' +
+    'span[role="button"],[role="button"],' +
+    '[data-ctl],[data-qa-locator],' +
+    '[data-aura-class],[data-aura-rendered-by],[data-key],[data-id],' +
+    '*[class*="slds-"]'
+  ));
+  const lwc = Array.from(doc.querySelectorAll([
+    'lightning-input','lightning-button','lightning-combobox','lightning-textarea',
+    'lightning-record-edit-form','lightning-tab','lightning-input-field','lightning-formatted-text'
+  ].join(',')));
+  const svg = Array.from(doc.querySelectorAll('svg, svg *'));
+  const all = [...new Set([...basics, ...lwc, ...svg])];
 
-  const attrs = [
-    'data-test-id','data-ctl','data-click','data-hotkey','data-validation','data-required',
-    'data-template','string_type','reserve_space','data-ui-meta','node_name','pyclassname','pyworkpage'
-  ];
-  for(const a of attrs){
-    if(el.hasAttribute(a)) return `//*[normalize-space()="${A}"]//following::*[@${a}="${el.getAttribute(a)}"][1]`;
-  }
-  if(el.getAttribute('role') === 'button') return `//*[normalize-space()="${A}"]//following::${tag}[@role="button"][1]`;
-  return '';
-}
-
-function genCSS(el){
-  const tag = el.tagName.toLowerCase();
-  if(el.id) return `#${cssEscape(el.id)}`;
-  const name = el.getAttribute('name'); if(name) return `${tag}[name="${name}"]`;
-  const cls = (el.getAttribute('class')||'').trim().split(/\s+/).filter(Boolean);
-  if(cls.length) return `${tag}.${cls.map(cssEscape).join('.')}`;
-  return tag;
-}
-
-function genPlaywright(el){
-  const tag = el.tagName.toLowerCase();
-  const roleable = /^(button|a|input|textarea|select)$/i.test(tag);
-  const label = bestLabelFor(el);
-
-  /* NEW: Pega-specific handling */
-  if(el.getAttribute('data-ctl') === 'Icon'){
-    const cls = el.getAttribute('class') || '';
-    if(cls.includes('pi-close-circle')){
-      return `page.locator('span[data-ctl="Icon"].pi-close-circle')`;
-    }
-    return `page.locator('${tag}[data-ctl="Icon"]')`;
-  }
-  if(el.getAttribute('role') === 'button'){
-    return `page.getByRole('button')`;
-  }
-  if(el.hasAttribute('name')){
-    return `page.locator('${tag}[name="${el.getAttribute('name')}"]')`;
-  }
-
-  if(roleable && label){
-    if(tag==='a') return `page.getByRole("link", { name: "${label}" })`;
-    if(tag==='button') return `page.getByRole("button", { name: "${label}" })`;
-    if(tag==='input' || tag==='textarea' || tag==='select') return `page.getByLabel("${label}")`;
-  }
-  if(el.id) return `page.locator("#${el.id}")`;
-  const css = genCSS(el);
-  return `page.locator("${css}")`;
-}
-
-function collectCandidateElements(doc){
-  const lwc = ['lightning-input','lightning-button','lightning-combobox','lightning-textarea','lightning-record-edit-form'];
-  const basic = Array.from(doc.querySelectorAll('input,button,a,select,textarea,span[role="button"],span[data-ctl]'));
-  const lwcEls = lwc.flatMap(tag=>Array.from(doc.getElementsByTagName(tag)));
-  const all = [...basic, ...lwcEls];
-  return all.filter(el=>{
-    const style = (el.getAttribute('style')||'').toLowerCase();
+  const elements = all.filter(el=>{
+    const style = (el.getAttribute?.('style')||'').toLowerCase();
     if(style.includes('display:none') || style.includes('visibility:hidden')) return false;
     return true;
   });
-}
 
-// === FULL REPLACE: extractAllLocators ===
-function extractAllLocators(){
-  if(!CURRENT_DOC){
-    if (typeof locList !== 'undefined' && locList) locList.innerHTML = '';
-    return;
-  }
+  const sfDetected   = !!doc.querySelector('*[data-aura-rendered-by], *[class*="slds-"]');
+  const pegaDetected = !!doc.querySelector('[data-ctl],span[data-ctl]');
 
-  const doc = CURRENT_DOC;
-
-  // ---- Collector (uses your collectCandidateElements if present, else a safe fallback)
-  let elements = [];
-  if (typeof collectCandidateElements === 'function') {
-    elements = collectCandidateElements(doc);
-  } else {
-    // Fallback collector: common interactables + SF/Pega hints
-    const basics = Array.from(doc.querySelectorAll(
-      'input,button,a,select,textarea,' +            // form + actionable
-      'span[role="button"],[role="button"],' +       // role buttons
-      '[data-ctl],[data-qa-locator],' +              // Pega/SF hooks
-      '[data-aura-class],[data-aura-rendered-by],[data-key],[data-id],' + // SF aura
-      '*[class*="slds-"]'                            // SLDS
-    ));
-    // LWC/force tags (enumerate the common ones)
-    const lwc = Array.from(doc.querySelectorAll([
-      'lightning-input','lightning-button','lightning-combobox','lightning-textarea',
-      'lightning-record-edit-form','lightning-tab','lightning-input-field','lightning-formatted-text'
-    ].join(',')));
-    const force = Array.from(doc.querySelectorAll([
-      'force-record-view','force-input','force-button','force-lookup','force-list-view'
-    ].join(',')));
-
-    elements = Array.from(new Set([...basics, ...lwc, ...force]));
-  }
-
-  // ---- Map each element to a rich locator object
-  CURRENT_LOCATORS = elements.map((el, idx) => {
+  CURRENT_LOCATORS = elements.map((el,idx)=>{
     const tag = el.tagName.toLowerCase();
+    const label = bestLabelFor(el);
 
-    // label/text
-    const label =
-      (typeof bestLabelFor === 'function' && bestLabelFor(el)) ||
-      (typeof textScore === 'function' && textScore(el)) ||
-      `elem${idx+1}`;
-
-    // detection (use your helpers if present; otherwise inline heuristics)
-    const pegaDetected = (typeof isPegaElement === 'function')
-      ? isPegaElement(el)
-      : (
-          el.hasAttribute('data-test-id') || el.hasAttribute('data-ctl') || el.hasAttribute('data-click') ||
-          el.hasAttribute('data-hotkey') || el.hasAttribute('data-validation') || el.hasAttribute('data-required') ||
-          el.hasAttribute('data-template') || el.hasAttribute('string_type') || el.hasAttribute('reserve_space') ||
-          el.hasAttribute('data-ui-meta') || el.hasAttribute('node_name') || el.hasAttribute('pyclassname') ||
-          el.hasAttribute('pyworkpage')
-        );
-
-    const sfDetected = (typeof isSalesforceElement === 'function')
-      ? isSalesforceElement(el)
-      : (
-          el.hasAttribute('data-qa-locator') || el.hasAttribute('data-aura-class') || el.hasAttribute('data-aura-rendered-by') ||
-          el.hasAttribute('data-key') || el.hasAttribute('data-id') ||
-          tag.startsWith('lightning-') || tag.startsWith('force-') || (el.className||'').includes('slds-')
-        );
-
-    // XPaths (guard each generator in case you haven’t pasted one)
-    const xp_basic     = (typeof genBasicXPath === 'function')      ? genBasicXPath(el)      : '';
-    const xp_wildcards = (typeof genWildcardXPath === 'function')   ? genWildcardXPath(el)   : '';
-    const xp_axes      = (typeof genAxesXPath === 'function')       ? genAxesXPath(el)       : '';
-    const xp_funcs     = (typeof genFunctionXPath === 'function')   ? genFunctionXPath(el)   : '';
-
-    const xp_sf        = (typeof genSalesforceXPath === 'function') ? genSalesforceXPath(el) : '';
-    const xp_sfsmart   = (typeof genSalesforceSmartXPath === 'function') ? (genSalesforceSmartXPath(el) || '') : '';
-
-    const xp_pega      = (typeof genPegaXPath === 'function')       ? genPegaXPath(el)       : '';
-    const xp_pegasmart = (typeof genPegaSmartXPath === 'function')  ? (genPegaSmartXPath(el) || '') : '';
-
-    // CSS + Playwright
-    const cssSel       = (typeof genCSS === 'function')             ? genCSS(el)             : '';
-    const pwSel        = (typeof genPlaywright === 'function')      ? genPlaywright(el)      : '';
-
-    // Framework badge (what strategy likely fired)
-    const framework = pegaDetected ? 'Pega+' : (sfDetected ? 'Salesforce+' : '');
+    const xp_basic     = genBasicXPath(el);
+    const xp_wildcards = genWildcardXPath(el);
+    const xp_axes      = genAxesXPath(el);
+    const xp_funcs     = genFunctionXPath(el);
+    const xp_sf        = genSalesforceXPath(el);
+    const xp_sfsmart   = genSalesforceSmartXPath(el) || '';
+    const xp_pega      = genPegaXPath(el);
+    const xp_pegasmart = genPegaSmartXPath(el) || '';
+    const cssSel       = genCSS(el);
+    const pwSel        = genPlaywright(el);
 
     return {
       id: `E${idx+1}`,
       tag,
       text: label,
-      framework,
+      framework: pegaDetected ? 'Pega+' : (sfDetected ? 'Salesforce+' : ''),
       xpaths: {
-        basic:     xp_basic,
+        basic: xp_basic,
         wildcards: xp_wildcards,
-        axes:      xp_axes,
+        axes: xp_axes,
         functions: xp_funcs,
-
-        // keep both families stored; UI can choose what to show
-        sf:        xp_sf,
-        sfsmart:   xp_sfsmart,
-        pega:      xp_pega,
+        sf: xp_sf,
+        sfsmart: xp_sfsmart,
+        pega: xp_pega,
         pegasmart: xp_pegasmart
       },
+      playwright: pwSel,
       css: cssSel,
-      playwright: pwSel
+      dynamic: dynamicPatternsFor(el),
+      _el_reference: null // reserved; not serializable — not used in output
     };
   });
 
-  // ---- Initial fill (choose your default panel; 'basic' is safest)
-  if (typeof fillLocatorList === 'function') {
-    fillLocatorList('basic');
-  } else if (window.fillLocatorList) {
-    window.fillLocatorList('basic');
-  }
+  fillLocatorList(ACTIVE_PANEL || 'basic');
+  showToast(`Extracted ${CURRENT_LOCATORS.length} elements`);
 }
-// also expose globally (avoids scope issues if other code calls it)
-window.extractAllLocators = extractAllLocators;
 
+/* =========================
+   Open dynamic picker helper (INSERT #3)
+========================= */
+function openDynamicPatternPicker(loc, row){
+  let items = (loc?.dynamic && loc.dynamic.length) ? loc.dynamic.slice() : [];
+
+  // fallback: param-ize best existing xpath
+  if(!items.length){
+    const best = loc?.xpaths?.sfsmart||loc?.xpaths?.sf||loc?.xpaths?.pegasmart||loc?.xpaths?.pega||
+                 loc?.xpaths?.functions||loc?.xpaths?.wildcards||loc?.xpaths?.axes||loc?.xpaths?.basic||'';
+    if(best) items.push(best.replace(/(=\s*["'])([^"']+)(["'])/, `$1%s$3`));
+  }
+  if(!items.length){ alert('No dynamic patterns for this element'); return; }
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  const panel = document.createElement('div');
+  panel.style.cssText = 'max-width:92vw;width:760px;max-height:70vh;overflow:auto;background:#0f1420;color:#e9eef5;border:1px solid #2b3748;border-radius:12px;padding:10px;';
+  const title = document.createElement('div');
+  title.textContent = `Choose a dynamic %s pattern for <${loc.tag}>`;
+  title.style.cssText = 'font-weight:800;margin:6px 4px 10px 4px';
+  const listEl = document.createElement('div');
+  listEl.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+
+  items.forEach(p=>{
+    const item = document.createElement('div');
+    item.textContent = p; item.title = p;
+    item.style.cssText = 'font-family:ui-monospace,Menlo,Consolas,monospace;border:1px solid #2b3748;border-radius:8px;padding:8px 10px;background:#0b1020;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    item.addEventListener('click', async ()=>{
+      const valEl = row.querySelector('.val') || row;
+      if(valEl) valEl.textContent = p;
+      try{ await navigator.clipboard.writeText(p); }catch(_){}
+      showToast('Dynamic XPath copied');
+      if(/^(\(?\/\/|\.\/\/|\/\/|\(\s*\/\/)/.test(p)) tryHighlight(p, null); else tryHighlight(null, p);
+      document.body.removeChild(overlay);
+    });
+    listEl.appendChild(item);
+  });
+
+  panel.appendChild(title);
+  panel.appendChild(listEl);
+  overlay.appendChild(panel);
+  overlay.addEventListener('click', (ev)=>{ if(ev.target===overlay) document.body.removeChild(overlay); });
+  document.body.appendChild(overlay);
+}
+
+/* =========================
+   Locator List UI (full replacement)
+   - single-click copy+highlight on value
+   - hover highlight
+   - per-row Custom button opens dynamic picker
+   - checkboxes drive POM generation
+========================= */
 function fillLocatorList(panel='basic'){
   locList.innerHTML = '';
-  if(!CURRENT_LOCATORS.length){ return; }
+  if(!CURRENT_LOCATORS.length) return;
 
+  // If user activated 'custom' or 'dynamic' panel let's show dynamic options
+  if(panel === 'custom' || panel === 'dynamic'){
+    CURRENT_LOCATORS.forEach(loc=>{
+      const row = document.createElement('div');
+      row.className = 'loc-row';
+      const first = (loc.dynamic && loc.dynamic[0]) || (loc.xpaths && (loc.xpaths.sfsmart||loc.xpaths.sf||loc.xpaths.functions||loc.xpaths.wildcards||loc.xpaths.axes||loc.xpaths.basic)) || '';
+      row.innerHTML = `
+        <input type="checkbox" class="sel" data-id="${loc.id}" style="margin-right:6px"${SELECTED_IDS.has(loc.id)?' checked':''}/>
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+          <span class="badge">${(loc.framework||'').trim() || loc.tag}</span>
+          <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40ch">${loc.text || '(no text)'}</div>
+        </div>
+        <div class="mono val" style="flex:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(first||'').replace(/"/g,'&quot;')}">${first}</div>
+        <div class="act">
+          <select class="dynSel" style="background:#0f1420;border:1px solid #2b3748;border-radius:8px;padding:4px 6px;margin-right:6px"></select>
+          <button class="btn" data-action="custom" style="width:auto;padding:4px 8px">Custom</button>
+        </div>
+      `;
+      // populate dropdown
+      const sel = row.querySelector('.dynSel');
+      (loc.dynamic||[]).forEach(p=>{
+        const o = document.createElement('option'); o.value = p; o.textContent = p; sel.appendChild(o);
+      });
+      sel.addEventListener('change', ()=>{
+        const chosen = sel.value;
+        row.querySelector('.val').textContent = chosen;
+        navigator.clipboard.writeText(chosen).then(()=>showToast('Dynamic XPath copied'));
+        if(/^(\(?\/\/|\.\/\/|\/\/|\(\s*\/\/)/.test(chosen)) tryHighlight(chosen, null);
+      });
+
+      // value click: copy + highlight
+      const valEl = row.querySelector('.val');
+      valEl.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const text = valEl.textContent.trim();
+        if(!text) return;
+        navigator.clipboard.writeText(text).then(()=>showToast('Copied'));
+        if(/^(\(?\/\/|\.\/\/|\/\/|\(\s*\/\/)/.test(text)) tryHighlight(text, null); else tryHighlight(null, text);
+      });
+      // hover = highlight only
+      valEl.addEventListener('mouseenter', ()=>{
+        const text = valEl.textContent.trim();
+        if(!text) return;
+        if(/^(\(?\/\/|\.\/\/|\/\/|\(\s*\/\/)/.test(text)) tryHighlight(text, null); else tryHighlight(null, text);
+      });
+
+      // custom button
+      const btnCustom = row.querySelector('[data-action="custom"]');
+      if(btnCustom) btnCustom.addEventListener('click', (e)=>{ e.stopPropagation(); openDynamicPatternPicker(loc, row); });
+
+      // selection checkbox
+      const cb = row.querySelector('.sel');
+      cb.addEventListener('change', (ev)=>{ if(ev.target.checked) SELECTED_IDS.add(loc.id); else SELECTED_IDS.delete(loc.id); });
+
+      locList.appendChild(row);
+    });
+    return;
+  }
+
+  // Normal panels: basic / wildcards / axes / functions / sf / pega
   CURRENT_LOCATORS.forEach(loc=>{
-    // prefer smart when user is on 'sf' or 'pega' panels
     let value = (loc.xpaths?.[panel]) || loc.xpaths.basic;
-    if(panel === 'sf'   && loc.xpaths.sfsmart)   value = loc.xpaths.sfsmart   || loc.xpaths.sf;
-    if(panel === 'pega' && loc.xpaths.pegasmart) value = loc.xpaths.pegasmart || loc.xpaths.pega;
+    if(panel==='sf' && loc.xpaths.sfsmart) value = loc.xpaths.sfsmart || loc.xpaths.sf;
+    if(panel==='pega' && loc.xpaths.pegasmart) value = loc.xpaths.pegasmart || loc.xpaths.pega;
 
     const row = document.createElement('div');
     row.className = 'loc-row';
     row.innerHTML = `
+      <input type="checkbox" class="sel" data-id="${loc.id}" style="margin-right:6px"${SELECTED_IDS.has(loc.id)?' checked':''}/>
       <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
         <span class="badge">${(loc.framework||'').trim() || loc.tag}</span>
         <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40ch">${loc.text || '(no text)'}</div>
       </div>
-      <div class="small mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60ch" title="${value}">${value}</div>
+      <div class="mono val" style="flex:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(value||'').replace(/"/g,'&quot;')}">${value || loc.css || loc.playwright || ''}</div>
+      <div class="act">
+        <button class="btn" data-action="custom" style="width:auto;padding:4px 8px">Custom</button>
+      </div>
     `;
-    row.addEventListener('click', async ()=>{
-      try{ await navigator.clipboard.writeText(value); }catch(e){}
-      showToast('Locator copied');
-      tryHighlightInPreviewByXPathOrCss({ xpath: value, css: loc.css });
+
+    // click value => copy+highlight
+    const valEl = row.querySelector('.val');
+    valEl.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const text = valEl.textContent.trim();
+      if(!text) return;
+      navigator.clipboard.writeText(text).then(()=>showToast('Copied'));
+      if(/^(\(?\/\/|\.\/\/|\/\/|\(\s*\/\/)/.test(text)) tryHighlight(text, null); else tryHighlight(null, text);
     });
+    // hover highlight only
+    valEl.addEventListener('mouseenter', ()=>{
+      const text = valEl.textContent.trim();
+      if(!text) return;
+      if(/^(\(?\/\/|\.\/\/|\/\/|\(\s*\/\/)/.test(text)) tryHighlight(text, null); else tryHighlight(null, text);
+    });
+
+    // custom button wiring
+    const btnCustom = row.querySelector('[data-action="custom"]');
+    if(btnCustom) btnCustom.addEventListener('click', (e)=>{ e.stopPropagation(); openDynamicPatternPicker(loc, row); });
+
+    // checkbox selection
+    const cb = row.querySelector('.sel');
+    cb.addEventListener('change', (ev)=>{ if(ev.target.checked) SELECTED_IDS.add(loc.id); else SELECTED_IDS.delete(loc.id); });
+
     locList.appendChild(row);
   });
 }
 
-/* Existing CSS-only highlight (kept for compatibility) */
-function tryHighlightInPreview(loc){
-  const css = loc.css;
+/* =========================
+   Shadow DOM-aware highlight
+   (replaces previous tryHighlight)
+========================= */
+function tryHighlight(xpath, css){
+  // prefer operating on preview iframe document
+  const frameDoc = preview.contentDocument || preview.contentWindow?.document;
+  if(!frameDoc) return;
+
+  // quick attempt in top-level document
   try{
-    const doc = preview.contentDocument || preview.contentWindow.document;
-    if(!doc) return;
-    const el = doc.querySelector(css);
-    if(!el) return;
-    const oldOutline = el.style.outline;
-    el.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
-    el.style.outline = '2px solid #7c5cff';
-    setTimeout(()=>{ el.style.outline = oldOutline; }, 1000);
-  }catch(e){}
+    if(xpath){
+      const iter = frameDoc.evaluate(xpath, frameDoc, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);
+      const node = iter.iterateNext();
+      if(node){ highlightElementInIframe(node); return; }
+    }
+    if(css){
+      const el = frameDoc.querySelector(css);
+      if(el){ highlightElementInIframe(el); return; }
+    }
+  }catch(e){ /* ignore and continue to deep search */ }
+
+  // deep search: recursively search shadowRoots for an element matching xpath
+  if(xpath){
+    const found = findInShadow(frameDoc, xpath);
+    if(found){ highlightElementInIframe(found); return; }
+  }
+  // as last attempt, search shadows for css selector
+  if(css){
+    const found = findInShadowByCss(frameDoc, css);
+    if(found){ highlightElementInIframe(found); return; }
+  }
 }
 
-/* NEW: XPath-aware highlighter helpers */
+function findInShadow(root, xpath){
+  if(!root) return null;
+  try{
+    if(root.evaluate){
+      const v = root.evaluate(xpath, root, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);
+      const f = v.iterateNext();
+      if(f) return f;
+    }
+  }catch(e){ /* ignore */ }
+  const all = root.querySelectorAll ? root.querySelectorAll('*') : [];
+  for(const el of all){
+    if(el.shadowRoot){
+      const res = findInShadow(el.shadowRoot, xpath);
+      if(res) return res;
+    }
+  }
+  return null;
+}
+function findInShadowByCss(root, css){
+  if(!root) return null;
+  try{
+    if(root.querySelector){
+      const f = root.querySelector(css);
+      if(f) return f;
+    }
+  }catch(e){}
+  const all = root.querySelectorAll ? root.querySelectorAll('*') : [];
+  for(const el of all){
+    if(el.shadowRoot){
+      const res = findInShadowByCss(el.shadowRoot, css);
+      if(res) return res;
+    }
+  }
+  return null;
+}
+
 function highlightElementInIframe(el){
   if(!el) return;
-  const oldOutline = el.style.outline;
-  el.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
-  el.style.outline = '2px solid #7c5cff';
-  setTimeout(()=>{ el.style.outline = oldOutline; }, 1000);
-}
-function findByXPathInIframe(xpath){
   try{
-    const doc = preview.contentDocument || preview.contentWindow.document;
-    if(!doc) return null;
-    const result = doc.evaluate(xpath, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-    const node = result.singleNodeValue;
-    return (node && node.nodeType === 1) ? node : null;
-  }catch(e){
-    return null;
-  }
-}
-function tryHighlightInPreviewByXPathOrCss({xpath, css}){
-  const looksXPath = !!xpath && (/^(\(?\/\/|\.\/\/|\/\/|\(\s*\/\/)/.test(xpath));
-  if(looksXPath){
-    const el = findByXPathInIframe(xpath);
-    if(el){ highlightElementInIframe(el); return; }
-  }
-  try{
-    const doc = preview.contentDocument || preview.contentWindow.document;
-    if(!doc || !css) return;
-    const el = doc.querySelector(css);
-    if(el){ highlightElementInIframe(el); }
+    const old = el.style.outline;
+    el.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
+    el.style.outline = '3px solid #ffdf5c';
+    setTimeout(()=>{ try{ el.style.outline = old; }catch(e){} }, 2200);
   }catch(e){}
 }
 
 /* =========================
-   Export (locators + checks)
-========================= *//*
-$('#btnExport').addEventListener('click', ()=>{
-  if(!CURRENT_LOCATORS.length) return showToast('Nothing to export');
-  const lines = [];
-  lines.push('// Export — locators with basic checks');
-  CURRENT_LOCATORS.forEach(l=>{
-    lines.push(`// ${l.tag} — ${l.text}`);
-    lines.push(`XPath (basic): ${l.xpaths.basic}`);
-    lines.push(`XPath (wildcards): ${l.xpaths.wildcards}`);
-    lines.push(`XPath (axes): ${l.xpaths.axes}`);
-    lines.push(`XPath (functions): ${l.xpaths.functions}`);
-    lines.push(`XPath (salesforce): ${l.xpaths.sf}`);
-    lines.push(`XPath (pega): ${l.xpaths.pega}`); // NEW
-    lines.push(`CSS: ${l.css}`);
-    lines.push(`Playwright: ${l.playwright}`);
-    lines.push(`Checks:`)
-    lines.push(`  - element should be visible`);
-    lines.push(`  - element should be enabled (not disabled)`);
-    lines.push(`  - clickable (not covered by overlay)`);
-    lines.push('');
+   Action candidates extractor (auto-run on render)
+   and a small dump table in #locator-dump if present
+========================= */
+function extractActionCandidates(){
+  if(!CURRENT_DOC) return;
+  const keywords = [/action/i, /\bactions?\b/i, /^x$/i, /^×$/, /\bclose\b/i, /\bmore\b/i, /\bmenu\b/i, /\bdismiss\b/i];
+  const els = Array.from(CURRENT_DOC.querySelectorAll('button, a, [role="button"], [role="menuitem"], [data-action], [data-id]'));
+  const candidates = [];
+  els.forEach(el=>{
+    const txt = (el.innerText || '').trim();
+    const title = el.getAttribute('title') || '';
+    const aria = el.getAttribute('aria-label') || '';
+    // peek inside svg or use <use> tag
+    let svgLabel = '';
+    const svg = el.querySelector('svg, use, path');
+    if(svg) svgLabel = svg.getAttribute('aria-label') || svg.getAttribute('title') || svg.getAttribute('data-key') || '';
+    const signal = [txt, title, aria, svgLabel].join(' ').trim();
+    if(!signal) return;
+    if(keywords.some(rx=>rx.test(signal))){
+      const basic = genBasicXPath(el);
+      const sf = genSalesforceXPath(el);
+      const pega = genPegaXPath(el);
+      const axes = genAxesXPath(el);
+      candidates.push({ signal, basic, sf, pega, axes });
+    }
   });
-  const blob = new Blob([lines.join('\n')], {type:'text/plain'});
-  downloadBlob(blob, 'locators_export.txt');
-  output.value = lines.join('\n');
-  showToast('Exported');
-}); */
+  window.CURRENT_LOCATORS_ACTIONS = candidates;
+  dumpLocatorTable(candidates);
+}
+
+function dumpLocatorTable(cands){
+  const out = document.getElementById('locator-dump');
+  if(!out) return;
+  out.innerHTML = '';
+  if(!cands.length){ out.textContent = 'No action candidates found'; return; }
+  const tbl = document.createElement('table');
+  tbl.style.cssText = 'width:100%;border-collapse:collapse;font-family:monospace;font-size:13px;color:#eee';
+  const head = document.createElement('tr');
+  head.innerHTML = '<th style="border:1px solid #555;padding:6px">Signal</th><th style="border:1px solid #555;padding:6px">Basic</th><th style="border:1px solid #555;padding:6px">SF</th><th style="border:1px solid #555;padding:6px">Pega</th><th style="border:1px solid #555;padding:6px">Axes</th>';
+  tbl.appendChild(head);
+  cands.forEach(c=>{
+    const tr = document.createElement('tr');
+    const esc = s => (s||'').replace(/"/g,'&quot;');
+    tr.innerHTML = `
+      <td style="border:1px solid #555;padding:6px">${c.signal}</td>
+      <td style="border:1px solid #555;padding:6px;cursor:pointer" onclick="(function(x){navigator.clipboard.writeText(x); try{ parent.tryHighlight(x,null); }catch(e){} })(\`${esc(c.basic)}\`)">${c.basic}</td>
+      <td style="border:1px solid #555;padding:6px;cursor:pointer" onclick="(function(x){navigator.clipboard.writeText(x); try{ parent.tryHighlight(x,null); }catch(e){} })(\`${esc(c.sf)}\`)">${c.sf}</td>
+      <td style="border:1px solid #555;padding:6px;cursor:pointer" onclick="(function(x){navigator.clipboard.writeText(x); try{ parent.tryHighlight(x,null); }catch(e){} })(\`${esc(c.pega)}\`)">${c.pega}</td>
+      <td style="border:1px solid #555;padding:6px;cursor:pointer" onclick="(function(x){navigator.clipboard.writeText(x); try{ parent.tryHighlight(x,null); }catch(e){} })(\`${esc(c.axes)}\`)">${c.axes}</td>
+    `;
+    tbl.appendChild(tr);
+  });
+  out.appendChild(tbl);
+}
 
 /* =========================
-   Generate POM + Steps
+   POM generation helpers
 ========================= */
-$('#btnGenPOM').addEventListener('click', ()=>{
-  if(!CURRENT_LOCATORS.length) return showToast('Render & extract first');
-  const fw = $('.sw[data-fw].active').dataset.fw;         // selenium | playwright
-  const runner = $('.sw[data-runner].active').dataset.runner; // testng | cucumber
-  const lang = $('.sw[data-lang].active').dataset.lang;   // java | javascript | python | typescript
+function pickLocator(l){
+  if(!l || !l.xpaths) return '';
+  if(ACTIVE_PANEL === 'custom' || ACTIVE_PANEL === 'dynamic'){
+    return (l.dynamic && l.dynamic[0]) || l.xpaths.basic || '';
+  }
+  // normal panels: basic,wildcards,axes,functions,sf,pega
+  return l.xpaths?.[ACTIVE_PANEL] || l.xpaths.basic || '';
+}
+function chosenLocators(locs){
+  return SELECTED_IDS.size ? locs.filter(l=>SELECTED_IDS.has(l.id)) : locs;
+}
 
-  const res = buildArtifacts({fw, runner, lang, locs: CURRENT_LOCATORS});
-  POM_CACHE = { pom: res.pom, steps: res.steps };
-  output.value = `// ===== POM =====\n${res.pom}\n\n// ===== Steps =====\n${res.steps}`;
-  showToast('POM + Steps generated');
-});
+/* =========================
+   Artifact builders (Java Selenium, Java Playwright, JS/TS/Python Playwright)
+   These use pickLocator() + chosenLocators()
+========================= */
 
 function buildArtifacts({fw, runner, lang, locs}){
   if(lang==='java'){
     if(fw==='selenium') return javaSeleniumArtifacts(runner, locs);
-    return javaPlaywrightArtifacts(runner, locs);
+    else return javaPlaywrightArtifacts(runner, locs);
   }
   if(lang==='javascript') return jsPlaywrightArtifacts(locs);
   if(lang==='typescript') return tsPlaywrightArtifacts(locs);
   if(lang==='python') return pyPlaywrightArtifacts(locs);
-  return {pom:'// Unsupported combination', steps:''};
+  return {pom:'// Unsupported language', steps:''};
 }
 
-/* ---------- Java + Selenium ---------- */
 function javaSeleniumArtifacts(runner, locs){
-  const fields = locs.map((l,i)=>`  @FindBy(xpath = "${l.xpaths.basic}")\n  private WebElement ${camel(l.text)||'elem'+(i+1)};`).join('\n\n');
-  const actions = locs.map((l,i)=>`  public void click_${safe(camel(l.text)||('elem'+(i+1)))}(){ ${camel(l.text)||'elem'+(i+1)}.click(); }`).join('\n');
+  const list = chosenLocators(locs);
+  const pick = l => pickLocator(l).replace(/"/g,'\\"');
+  const fields = list.map((l,i)=>`  @FindBy(xpath = "${pick(l)}")\n  private WebElement el${i+1};`).join('\n\n');
+  const actions = list.map((l,i)=>`  public void clickEl${i+1}(){ ensureClickable(el${i+1}); el${i+1}.click(); }`).join('\n');
   const waits = `
+  private WebDriver driver;
   private WebDriverWait wait;
   public SamplePage(WebDriver driver){
     this.driver = driver;
@@ -851,7 +640,6 @@ function javaSeleniumArtifacts(runner, locs){
   }
   private void ensureVisible(WebElement e){ wait.until(ExpectedConditions.visibilityOf(e)); }
   private void ensureClickable(WebElement e){ wait.until(ExpectedConditions.elementToBeClickable(e)); }`;
-
   const pom = `import org.openqa.selenium.*; 
 import org.openqa.selenium.support.FindBy;
 import org.openqa.selenium.support.PageFactory;
@@ -859,7 +647,6 @@ import org.openqa.selenium.support.ui.*;
 import java.time.Duration;
 
 public class SamplePage {
-  private WebDriver driver;
 ${fields}
 
 ${waits}
@@ -867,267 +654,101 @@ ${waits}
 ${actions}
 }
 `;
-
-  let steps = '';
-  if(runner==='cucumber'){
-    steps = `import io.cucumber.java.en.*; 
-import org.openqa.selenium.*; 
-
-public class SampleSteps {
-  private WebDriver driver;
-  private SamplePage page;
-
-  public SampleSteps(){ /* inject your driver here */ }
-
-  @When("user clicks {string}")
-  public void userClicks(String name){
-    page = new SamplePage(driver);
-    page.click_${safe(camel(locs[0]?.text||'elem1'))}();
-  }
-}
-`;
-  } else {
-    steps = `import org.testng.annotations.*; 
-import org.openqa.selenium.*; 
-
-public class SampleTest {
-  private WebDriver driver;
-  private SamplePage page;
-
-  @BeforeClass
-  public void setup(){ /* init driver here */ }
-
-  @Test
-  public void example(){
-    page = new SamplePage(driver);
-    // call actions as needed
-  }
-
-  @AfterClass
-  public void cleanup(){ if(driver!=null) driver.quit(); }
-}
-`;
-  }
+  const steps = (runner==='cucumber') ? `import io.cucumber.java.en.*;\npublic class Steps {\n  private WebDriver driver; private SamplePage page;\n  @Given("open") public void open(){ /* init driver */ page = new SamplePage(driver); }\n  @When("click element") public void click(){ page.clickEl1(); }\n}` :
+    `import org.testng.annotations.*;\npublic class TestSample {\n  private WebDriver driver; private SamplePage page;\n  @BeforeClass public void setup(){ /* init driver */ page = new SamplePage(driver); }\n  @Test public void t1(){ page.clickEl1(); }\n  @AfterClass public void cleanup(){ if(driver!=null) driver.quit(); }\n}`;
   return {pom, steps};
 }
 
-/* ---------- Java + Playwright ---------- */
 function javaPlaywrightArtifacts(runner, locs){
-  const fields = locs.map((l,i)=>`  private Locator ${camel(l.text)||'elem'+(i+1)};`).join('\n');
-  const initLines = locs.map((l,i)=>`    ${camel(l.text)||'elem'+(i+1)} = ${l.playwright};`).join('\n');
-  const actions = locs.map((l,i)=>`  public void click_${safe(camel(l.text)||('elem'+(i+1)))}(){ ${camel(l.text)||'elem'+(i+1)}.click(); }`).join('\n');
-
-  const pom = `import com.microsoft.playwright.*;
-
-public class SamplePage {
-  private final Page page;
-${fields}
-
-  public SamplePage(Page page){
-    this.page = page;
-${initLines}
-  }
-
-${actions}
-}
-`;
-  let steps='';
-  if(runner==='cucumber'){
-    steps = `import io.cucumber.java.en.*; 
-import com.microsoft.playwright.*;
-
-public class SampleSteps {
-  private Page page;
-  private SamplePage sample;
-
-  public SampleSteps(){ /* inject Playwright Page here */ }
-
-  @When("user clicks {string}")
-  public void userClicks(String name){
-    sample = new SamplePage(page);
-    sample.click_${safe(camel(locs[0]?.text||'elem1'))}();
-  }
-}
-`;
-  } else {
-    steps = `import org.testng.annotations.*; 
-import com.microsoft.playwright.*;
-
-public class SampleTest {
-  private Playwright playwright;
-  private Browser browser;
-  private Page page;
-
-  @BeforeClass
-  public void setup(){
-    playwright = Playwright.create();
-    browser = playwright.chromium().launch();
-    page = browser.newPage();
-  }
-
-  @Test
-  public void example(){
-    SamplePage sample = new SamplePage(page);
-    // call actions as needed
-  }
-
-  @AfterClass
-  public void cleanup(){
-    if(browser!=null) browser.close();
-    if(playwright!=null) playwright.close();
-  }
-}
-`;
-  }
+  const list = chosenLocators(locs);
+  const fields = list.map((l,i)=>`  private Locator el${i+1};`).join('\n');
+  const init = list.map((l,i)=>`    el${i+1} = page.locator("xpath=${pickLocator(l).replace(/"/g,'\\"')}");`).join('\n');
+  const actions = list.map((l,i)=>`  public void clickEl${i+1}(){ el${i+1}.click(); }`).join('\n');
+  const pom = `import com.microsoft.playwright.*;\npublic class PwPage {\n  private Page page;\n${fields}\n  public PwPage(Page page){\n    this.page = page;\n${init}\n  }\n${actions}\n}\n`;
+  const steps = `// Playwright Java steps placeholder`;
   return {pom, steps};
 }
 
-/* ---------- JS/TS/Python quick stubs ---------- */
 function jsPlaywrightArtifacts(locs){
-  const lines = locs.map(l=>`  this.${camel(l.text)||'elem'} = ${l.playwright.replace(/^page\./,'this.page.')};`).join('\n');
-  const pom = `class SamplePage {
-  constructor(page){
-    this.page = page;
-${lines}
-  }
+  const list = chosenLocators(locs);
+  const fields = list.map((l,i)=>`  const el${i+1} = page.locator(\`xpath=${pickLocator(l)}\`);`).join('\n');
+  const pom = `// JS Playwright sample\nmodule.exports.test = async ({ page }) => {\n${fields}\n  await el1.click();\n};\n`;
+  return {pom, steps:''};
 }
-module.exports = { SamplePage };`;
-  const steps = `// Use your preferred runner (e.g., @playwright/test) and import SamplePage`;
-  return {pom, steps};
-}
+
 function tsPlaywrightArtifacts(locs){
-  const lines = locs.map(l=>`  ${camel(l.text)||'elem'} = ${l.playwright.replace(/^page\./,'this.page.')};`).join('\n');
-  const pom = `export class SamplePage {
-  constructor(private page: Page){
-${lines}
-  }
-}`;
-  const steps = `// Add your test runner glue (Playwright Test / Cucumber TS)`;
-  return {pom, steps};
+  const list = chosenLocators(locs);
+  const fields = list.map((l,i)=>`  const el${i+1} = page.locator(\`xpath=${pickLocator(l)}\`);`).join('\n');
+  const pom = `// TS Playwright sample\nexport async function test(page: import('@playwright/test').Page){\n${fields}\n  await el1.click();\n}\n`;
+  return {pom, steps:''};
 }
+
 function pyPlaywrightArtifacts(locs){
-  const lines = locs.map(l=>`        self.${camel(l.text)||'elem'} = page.locator("${l.css}")`).join('\n');
-  const pom = `class SamplePage:
-    def __init__(self, page):
-        self.page = page
-${lines ? lines : '        pass'}
-`;
-  const steps = `# Add behave/pytest-bdd glue as needed`;
-  return {pom, steps};
+  const list = chosenLocators(locs);
+  const fields = list.map((l,i)=>`    el${i+1} = page.locator("xpath=${pickLocator(l)}")`).join('\n');
+  const pom = `# Python Playwright sample\ndef test_example(page):\n${fields}\n    el1.click()\n`;
+  return {pom, steps:''};
 }
 
 /* =========================
-   Download helpers
+   Export (locators + checks)
+========================= */
+$('#btnExport')?.addEventListener('click', ()=>{
+  if(!CURRENT_LOCATORS.length) return showToast('Nothing to export');
+  const chosen = chosenLocators(CURRENT_LOCATORS);
+  const lines = [];
+  lines.push('// Export — locators with basic checks');
+  chosen.forEach(l=>{
+    lines.push(`// ${l.id} — <${l.tag}> — ${l.text}`);
+    if(l.xpaths){
+      lines.push(`XPath (selected): ${pickLocator(l)}`);
+      lines.push(`XPath (basic): ${l.xpaths.basic}`);
+      lines.push(`XPath (wildcards): ${l.xpaths.wildcards}`);
+      lines.push(`XPath (axes): ${l.xpaths.axes}`);
+      lines.push(`XPath (functions): ${l.xpaths.functions}`);
+      lines.push(`XPath (salesforce): ${l.xpaths.sf}`);
+      lines.push(`XPath (pega): ${l.xpaths.pega}`);
+    }
+    lines.push(`CSS: ${l.css}`);
+    lines.push(`Playwright: ${l.playwright}`);
+    lines.push('Checks:');
+    lines.push('  - visible');
+    lines.push('  - enabled');
+    lines.push('  - clickable');
+    lines.push('');
+  });
+  const blob = new Blob([lines.join('\\n')], {type:'text/plain'});
+  downloadBlob(blob, SELECTED_IDS.size? 'locators_selected.txt' : 'locators_export.txt');
+  output.value = lines.join('\\n');
+  showToast(SELECTED_IDS.size? 'Exported selected' : 'Exported');
+});
+
+/* =========================
+   Generate POM + Steps
+========================= */
+$('#btnGenPOM').addEventListener('click', ()=>{
+  if(!CURRENT_LOCATORS.length) return showToast('Render & extract first');
+  const fw = $('.sw[data-fw].active').dataset.fw || 'selenium';
+  const runner = $('.sw[data-runner].active').dataset.runner || 'testng';
+  const lang = $('.sw[data-lang].active').dataset.lang || 'java';
+  const res = buildArtifacts({fw, runner, lang, locs: CURRENT_LOCATORS});
+  POM_CACHE = { pom: res.pom, steps: res.steps };
+  output.value = `// ===== POM =====\n${res.pom}\n\n// ===== Steps =====\n${res.steps}`;
+  showToast('POM + Steps generated');
+});
+
+/* =========================
+   Utils
 ========================= */
 function downloadBlob(blob, filename){
-  const a=document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
 }
-
-$('#btnDownloadPOM').addEventListener('click', ()=>{
-  if(!POM_CACHE.pom){ return showToast('Generate POM first'); }
-  downloadBlob(new Blob([POM_CACHE.pom],{type:'text/plain'}), 'SamplePage.java');
-  showToast('POM downloaded');
-});
-$('#btnDownloadSteps').addEventListener('click', ()=>{
-  if(!POM_CACHE.steps){ return showToast('Generate Steps first'); }
-  downloadBlob(new Blob([POM_CACHE.steps],{type:'text/plain'}), 'SampleSteps.java');
-  showToast('Steps downloaded');
-});
-
-$('#btnZipAll').addEventListener('click', ()=>{
-  if(!POM_CACHE.pom || !POM_CACHE.steps || !CURRENT_LOCATORS.length){
-    return showToast('Generate POM/Steps & Export locators first');
-  }
-  const locTxt = CURRENT_LOCATORS.map(l=>[
-    `// ${l.tag} — ${l.text}`,
-    `XPath: ${l.xpaths.basic}`,
-    `CSS: ${l.css}`,
-    `Playwright: ${l.playwright}`,
-    ''
-  ].join('\n')).join('\n');
-  downloadBlob(new Blob([POM_CACHE.pom],{type:'text/plain'}), 'SamplePage.java');
-  downloadBlob(new Blob([POM_CACHE.steps],{type:'text/plain'}), 'SampleSteps.java');
-  downloadBlob(new Blob([locTxt],{type:'text/plain'}), 'Locators.txt');
-  showToast('Downloaded 3 files');
-});
-
-/* =========================
-   API Studio
-========================= */
-$('#btnPasteCurl').addEventListener('click', async ()=>{
-  try{
-    const txt = await navigator.clipboard.readText(); if(!txt) return showToast('Clipboard empty');
-    parseCurl(txt); showToast('Parsed cURL');
-  }catch(e){ showToast('Clipboard blocked'); }
-});
-$('#btnGenerateApi').addEventListener('click', ()=>{
-  generateApiCode(); showToast('API code generated');
-});
-$('#btnCopyApiCode').addEventListener('click', async ()=>{
-  await navigator.clipboard.writeText($('#apiCode').value||'');
-  showToast('Code copied');
-});
-
-function parseCurl(curl){
-  try{
-    const method = (curl.match(/-X\s+(GET|POST|PUT|DELETE|PATCH)/i)||[])[1] || 'GET';
-    const url = (curl.match(/curl\s+['"]?([^'"\s]+)/i)||[])[1] || '';
-    const headerRegex = /-H\s+['"]([^:'"]+)\s*:\s*([^'"]+)['"]/gi;
-    const dataMatch = curl.match(/--data(?:-raw)?\s+['"]([^'"]+)['"]/i);
-    const headers = {};
-    let h; while((h=headerRegex.exec(curl))!==null){ headers[h[1]] = h[2]; }
-    $('#apiMethod').value = method.toUpperCase();
-    $('#apiUrl').value = url;
-    if(Object.keys(headers).length) $('#apiHeaders').value = JSON.stringify(headers, null, 2);
-    if(dataMatch) $('#apiBody').value = dataMatch[1];
-  }catch(e){ /* no-op */ }
-}
-
-function generateApiCode(){
-  const method=$('#apiMethod').value;
-  const url=$('#apiUrl').value;
-  let headers=$('#apiHeaders').value;
-  const body=$('#apiBody').value;
-  try{ headers = JSON.stringify(JSON.parse(headers), null, 2); }catch(e){}
-  const rest = `// RestAssured Example
-given()
-  .headers(${headers})
-  .body(${body})
-.when()
-  .${method.toLowerCase()}("${url}")
-.then()
-  .statusCode(200);`;
-  const pw = `// Playwright Java API Example
-APIRequestContext request = playwright.request().newContext();
-APIResponse response = request.${method.toLowerCase()}("${url}", RequestOptions.create()
-    .setHeaders(${headers})
-    .setData(${body}));
-System.out.println(response.text());`;
-  $('#apiCode').value = rest + "\n\n" + pw;
-}
-
-/* =========================
-   Utilities
-========================= */
-function camel(s){
-  if(!s) return '';
-  return s.toString()
-    .replace(/[^\p{L}\p{N}]+/gu,' ')
-    .trim()
-    .toLowerCase()
-    .split(' ')
-    .map((w,i)=> i? (w.charAt(0).toUpperCase()+w.slice(1)) : w)
-    .join('');
-}
+function slug(s){ return (s||'element').toString().replace(/\s+/g,'_').replace(/[^A-Za-z0-9_]/g,'').replace(/^(\d)/,'_$1').slice(0,60); }
+function camel(s){ return s.toString().replace(/[^\p{L}\p{N}]+/gu,' ').trim().toLowerCase().split(' ').map((w,i)=> i? (w.charAt(0).toUpperCase()+w.slice(1)) : w).join(''); }
 function safe(s){ return (s||'').replace(/[^A-Za-z0-9_]/g,''); }
 
 /* Init */
 setMode('pom');
 </script>
-</body>
-</html>
